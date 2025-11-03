@@ -1,0 +1,29 @@
+# Ignore proxy lists (they may contain credentials)
+proxy_lists/*.txt
+
+# Node.js dependencies
+node_modules/
+
+# Environment files
+.env
+.env.local
+.env.development
+.env.production
+
+# Docker-related
+postgres_data/
+redis_data/
+*.log
+
+# OS/system files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+
+# Build outputs (if we later add build step)
+dist/
+build/
