@@ -1,0 +1,29 @@
+version: "3.8"
+services:
+  app:
+    image: node:20-alpine
+    working_dir: /app
+    volumes:
+      - .:/app
+    command: sh -c "npm install && npm run start"
+    ports:
+      - "3000:3000"
+    env_file: .env
+    depends_on:
+      - db
+      - redis
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: myproxy
+    volumes:
+      - ./sql/init.sql:/docker-entrypoint-initdb.d/1-init.sql
+      - ./sql/seed.sql:/docker-entrypoint-initdb.d/2-seed.sql
+    ports:
+      - "5432:5432"
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
