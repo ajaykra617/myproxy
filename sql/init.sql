@@ -22,3 +22,8 @@ CREATE TABLE IF NOT EXISTS proxy_usage (
   latency_ms INT,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Added November 2025
+ALTER TABLE proxies
+ADD COLUMN IF NOT EXISTS provider_type TEXT DEFAULT 'generic',
+ADD COLUMN IF NOT EXISTS protocol TEXT DEFAULT 'http';
