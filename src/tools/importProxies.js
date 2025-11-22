@@ -51,10 +51,35 @@ async function importProxies() {
   }
 
   for (const file of files) {
-    const providerParts = file.replace(".txt", "").split("_");
-    const provider = providerParts[0];
-    const providerType = providerParts[1] || "generic";
-    const protocol = providerParts[2] || "http";
+        const providerParts = file.replace(".txt", "").split("_");
+
+        // expected patterns:
+        // provider[_country][_type][_protocol]
+        const provider = providerParts[0];
+        let country = null;
+        let providerType = "generic";
+        let protocol = "http";
+
+        if (providerParts.length === 2) {
+        // webshare_us.txt
+        if (providerParts[1].length === 2) country = providerParts[1].toUpperCase();
+        else providerType = providerParts[1];
+        } else if (providerParts.length === 3) {
+        // webshare_us_http OR ipdealer_mobile_socks
+        if (providerParts[1].length === 2) {
+            country = providerParts[1].toUpperCase();
+            protocol = providerParts[2];
+        } else {
+            providerType = providerParts[1];
+            protocol = providerParts[2];
+        }
+        } else if (providerParts.length >= 4) {
+        // ipdealer_in_mobile_socks.txt
+        country = providerParts[1].toUpperCase();
+        providerType = providerParts[2];
+        protocol = providerParts[3];
+        }
+
 
     logger.info(`📥 Importing from: ${file} (provider=${provider}, type=${providerType}, protocol=${protocol})`);
 
@@ -72,19 +97,21 @@ async function importProxies() {
 
       try {
         await pg.query(
-          `INSERT INTO proxies (ip, port, username, password, protocol, provider, provider_type, healthy)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,true)
-           ON CONFLICT DO NOTHING`,
-          [
+        `INSERT INTO proxies (ip, port, username, password, protocol, provider, provider_type, country, healthy)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,true)
+        ON CONFLICT DO NOTHING`,
+        [
             proxy.ip,
             proxy.port,
             proxy.username,
             proxy.password,
             protocol,
             provider,
-            providerType
-          ]
+            providerType,
+            country
+        ]
         );
+
         success++;
       } catch (err) {
         logger.error(`Error inserting ${line}: ${err.message}`);
