@@ -15,6 +15,8 @@ services:
       - redis
 
   db:
+    ports:
+      - 5433:5432
     image: postgres:16
     environment:
       POSTGRES_USER: postgres
