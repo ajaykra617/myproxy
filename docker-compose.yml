@@ -1,4 +1,5 @@
 version: "3.8"
+
 services:
   app:
     image: node:20-alpine
@@ -7,11 +8,12 @@ services:
       - .:/app
     command: sh -c "npm install && npm run start"
     ports:
-      - "3000:3000"
+      - "3100:3000"   # Expose API on VM port 3100
     env_file: .env
     depends_on:
       - db
       - redis
+
   db:
     image: postgres:16
     environment:
@@ -21,9 +23,8 @@ services:
     volumes:
       - ./sql/init.sql:/docker-entrypoint-initdb.d/1-init.sql
       - ./sql/seed.sql:/docker-entrypoint-initdb.d/2-seed.sql
-    ports:
-      - "5432:5432"
+    # No host port exposure to avoid conflicts
+
   redis:
     image: redis:7
-    ports:
-      - "6379:6379"
+    # No host port exposure to avoid conflicts
