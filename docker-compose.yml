@@ -22,10 +22,11 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: myproxy
+    # docker-compose.yml (only change this part)
     volumes:
-      - ./sql/init.sql:/docker-entrypoint-initdb.d/1-init.sql
-      - ./sql/seed.sql:/docker-entrypoint-initdb.d/2-seed.sql
-    # No host port exposure to avoid conflicts
+      - ./sql/init_v2.sql:/docker-entrypoint-initdb.d/1-schema.sql
+      # Remove old seed for now — we'll import manually later
+      # No host port exposure to avoid conflicts
 
   redis:
     image: redis:7

@@ -1,3 +1,4 @@
+// src/tools/importProxies.js
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -11,118 +12,91 @@ function parseProxyLine(line) {
   line = line.trim();
   if (!line || line.startsWith("#")) return null;
 
-  // Remove any leading protocol
   line = line.replace(/^(http|https|socks5|socks):\/\//i, "");
 
   let username, password, ip, port;
 
-  // Case 1: user:pass@ip:port
   if (line.includes("@")) {
     const [auth, host] = line.split("@");
     [username, password] = auth.split(":");
     [ip, port] = host.split(":");
-  }
-
-  // Case 2: ip:port:user:pass
-  else if (line.split(":").length >= 4) {
+  } else if (line.split(":").length >= 4) {
     [ip, port, username, password] = line.split(":");
-  }
-
-  // Case 3: ip:port
-  else if (line.split(":").length === 2) {
+  } else if (line.split(":").length === 2) {
     [ip, port] = line.split(":");
   }
 
   if (!ip || !port) return null;
 
-  return {
-    ip: ip.trim(),
-    port: parseInt(port.trim(), 10),
-    username: username?.trim() || null,
-    password: password?.trim() || null
-  };
+  return { ip: ip.trim(), port: parseInt(port.trim(), 10), username: username?.trim(), password: password?.trim() };
 }
 
 async function importProxies() {
   const files = fs.readdirSync(proxyDir).filter(f => f.endsWith(".txt"));
   if (!files.length) {
-    logger.warn("No .txt proxy lists found in proxy_lists/");
+    logger.warn("No proxy lists found in proxy_lists/");
     return;
   }
 
   for (const file of files) {
-        const providerParts = file.replace(".txt", "").split("_");
+    let provider = "unknown";
+    let proxy_type = "datacenter";  // default
+    let country = null;
+    let protocol = "http";
 
-        // expected patterns:
-        // provider[_country][_type][_protocol]
-        const provider = providerParts[0];
-        let country = null;
-        let providerType = "generic";
-        let protocol = "http";
+    const name = file.replace(".txt", "");
+    const parts = name.split("_");
 
-        if (providerParts.length === 2) {
-        // webshare_us.txt
-        if (providerParts[1].length === 2) country = providerParts[1].toUpperCase();
-        else providerType = providerParts[1];
-        } else if (providerParts.length === 3) {
-        // webshare_us_http OR ipdealer_mobile_socks
-        if (providerParts[1].length === 2) {
-            country = providerParts[1].toUpperCase();
-            protocol = providerParts[2];
-        } else {
-            providerType = providerParts[1];
-            protocol = providerParts[2];
-        }
-        } else if (providerParts.length >= 4) {
-        // ipdealer_in_mobile_socks.txt
-        country = providerParts[1].toUpperCase();
-        providerType = providerParts[2];
-        protocol = providerParts[3];
-        }
+    provider = parts[0];
 
+    if (parts.length >= 2) {
+      if (parts[1].length === 2) country = parts[1].toUpperCase();
+      else proxy_type = parts[1];
+    }
+    if (parts.length >= 3) {
+      if (parts[2].length === 2 && country === null) country = parts[2].toUpperCase();
+      else if (parts[2] !== country) protocol = parts[2];
+    }
+    if (parts.length >= 4) {
+      proxy_type = parts[2];
+      protocol = parts[3];
+    }
 
-    logger.info(`📥 Importing from: ${file} (provider=${provider}, type=${providerType}, protocol=${protocol})`);
+    logger.info(`Importing ${file} → provider=${provider}, type=${proxy_type}, country=${country || 'global'}, protocol=${protocol}`);
 
     const content = fs.readFileSync(path.join(proxyDir, file), "utf8");
     const lines = content.split(/\r?\n/).filter(Boolean);
 
-    let success = 0;
-
+    let inserted = 0;
     for (const line of lines) {
-      const proxy = parseProxyLine(line);
-      if (!proxy) {
-        logger.warn(`⚠️ Skipping invalid line: ${line}`);
-        continue;
-      }
+      const p = parseProxyLine(line);
+      if (!p) continue;
+
+      const proxy_string = p.username 
+        ? `${protocol}://${p.username}:${p.password}@${p.ip}:${p.port}`
+        : `${protocol}://${p.ip}:${p.port}`;
 
       try {
-        await pg.query(
-        `INSERT INTO proxies (ip, port, username, password, protocol, provider, provider_type, country, healthy)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,true)
-        ON CONFLICT DO NOTHING`,
-        [
-            proxy.ip,
-            proxy.port,
-            proxy.username,
-            proxy.password,
-            protocol,
-            provider,
-            providerType,
-            country
-        ]
-        );
-
-        success++;
+        await pg.query(`
+          INSERT INTO proxies (
+            proxy_string, ip, port, username, password, protocol,
+            provider, proxy_type, country, score, healthy
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 100, true)
+          ON CONFLICT (ip, port, provider) DO NOTHING
+        `, [
+          proxy_string, p.ip, p.port, p.username, p.password, protocol,
+          provider, proxy_type, country
+        ]);
+        inserted++;
       } catch (err) {
-        logger.error(`Error inserting ${line}: ${err.message}`);
+        logger.warn(`Failed to insert ${line}: ${err.message}`);
       }
     }
-
-    logger.info(`✅ Imported ${success}/${lines.length} proxies from ${file}`);
+    logger.info(`Inserted ${inserted}/${lines.length} from ${file}`);
   }
 
+  logger.info("All proxy imports complete!");
   await pg.end();
-  logger.info("🎯 All proxy lists imported successfully!");
 }
 
-importProxies().catch(err => logger.error(err));
+importProxies().catch(err => logger.error("Import failed:", err));
