@@ -9,22 +9,46 @@ import { logger } from "../../utils/logger.js";
 const router = Router();
 
 // Add this line near the top with other routes
-router.get("/proxies/random", async (req, res) => {  // ← Fixed path
-  const { rows } = await pg.query(`
-    SELECT * FROM proxies 
-    WHERE healthy = true 
-    ORDER BY RANDOM() 
-    LIMIT 1
-  `);
-  if (!rows.length) return res.status(404).json({ error: "No healthy proxies" });
+// NEW - supports ?provider=xxx (optional)
+router.get("/proxies/random", async (req, res) => {
+  const requestedProvider = req.query.provider;
 
-  const p = rows[0];
-  res.json({
-    proxy: p.proxy_string,
-    id: p.id,
-    provider: p.provider,
-    type: p.proxy_type
-  });
+  let query = `
+    SELECT * FROM proxies 
+    WHERE healthy = true
+  `;
+  const values = [];
+
+  // If user wants specific provider
+  if (requestedProvider) {
+    query += ` AND provider = $${values.length + 1}`;
+    values.push(requestedProvider);
+  }
+
+  query += ` ORDER BY RANDOM() LIMIT 1`;
+
+  try {
+    const { rows } = await pg.query(query, values);
+
+    if (!rows.length) {
+      const errorMsg = requestedProvider 
+        ? `No healthy proxies found for provider: ${requestedProvider}`
+        : "No healthy proxies available at all";
+      return res.status(404).json({ error: errorMsg });
+    }
+
+    const p = rows[0];
+    res.json({
+      proxy: p.proxy_string,
+      id: p.id,
+      provider: p.provider,
+      type: p.proxy_type,
+      country: p.country || "global"  // nice bonus
+    });
+  } catch (err) {
+    logger.error("Random proxy error:", err);
+    res.status(500).json({ error: "Internal error" });
+  }
 });
 // NEW MAIN ENDPOINT — AI-POWERED
 router.get("/proxy", async (req, res) => {
