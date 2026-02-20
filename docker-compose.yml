@@ -8,26 +8,36 @@ services:
       - .:/app
     command: sh -c "npm install && npm run start"
     ports:
-      - "3100:3000"   # Expose API on VM port 3100
+      - "3100:3000"   # REST API
+      - "8080:8080"   # Proxy relay (RELAY_HOST must be set in .env)
     env_file: .env
     depends_on:
       - db
       - redis
+    restart: unless-stopped
 
   db:
-    ports:
-      - 5433:5432
     image: postgres:16
+    # No external port mapping — DB is only reachable from within Docker.
+    # Uncomment the line below temporarily if you need psql access from the host.
+    # ports:
+    #   - "5433:5432"
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: myproxy
-    # docker-compose.yml (only change this part)
     volumes:
-      - ./sql/init_v2.sql:/docker-entrypoint-initdb.d/1-schema.sql
-      # Remove old seed for now — we'll import manually later
-      # No host port exposure to avoid conflicts
+      - pgdata:/var/lib/postgresql/data
+      - ./sql/init_v3_core.sql:/docker-entrypoint-initdb.d/1-schema.sql
+      - ./sql/seed_test.sql:/docker-entrypoint-initdb.d/2-seed.sql
+    restart: unless-stopped
 
   redis:
     image: redis:7
-    # No host port exposure to avoid conflicts
+    volumes:
+      - redisdata:/data
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  redisdata:

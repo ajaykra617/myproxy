@@ -1,0 +1,42 @@
+# MyProxy — Gateway Proxy Configuration
+#
+# Format:  proxy_url , provider , type , country , protocol , session_type , ttl
+#
+# proxy_url formats accepted:
+#   user:pass@host:port          ← DataImpulse / most gateway providers
+#   https://user:pass@host:port  ← explicit URL form
+#   host:port:user:pass          ← legacy colon form
+#
+# type         : datacenter | residential | mobile | isp
+# country      : ISO 3166-1 alpha-2 code  (US, DE, GB, FR, ...)
+# protocol     : http | https | socks4 | socks5
+# session_type : rotating | sticky   (optional — defaults to "rotating")
+# ttl          : sticky session default duration in minutes, 1–1440  (optional)
+#                Stored as metadata.sessttl. Clients can override with ?ttl=
+#
+# ── DataImpulse URL formats ───────────────────────────────────────────────────
+#
+#  Rotating  (port 823, new IP every request):
+#    login__cr.{country}:pass@gw.dataimpulse.com:823
+#
+#  Sticky  (port 10000, same IP pinned for N minutes):
+#    Store the BASE username WITHOUT any ;sessttl.N suffix.
+#    The TTL is injected at request time from the ttl column (or ?ttl= API param).
+#    e.g.  login__cr.{country}:pass@gw.dataimpulse.com:10000
+#
+# ─────────────────────────────────────────────────────────────────────────────
+proxy_url,provider,type,country,protocol,session_type,ttl
+# ── DataImpulse US — rotating + sticky ───────────────────────────────────────
+f02b9fb83fcfe2599938__cr.us:62b9ad13e79c2472@gw.dataimpulse.com:823,dataimpulse,datacenter,US,https,rotating
+f02b9fb83fcfe2599938__cr.us:62b9ad13e79c2472@gw.dataimpulse.com:10000,dataimpulse,datacenter,US,http,sticky,60
+# ── DataImpulse other countries (rotating) ───────────────────────────────────
+f02b9fb83fcfe2599938__cr.de:62b9ad13e79c2472@gw.dataimpulse.com:823,dataimpulse,datacenter,DE,https,rotating
+f02b9fb83fcfe2599938__cr.gb:62b9ad13e79c2472@gw.dataimpulse.com:823,dataimpulse,datacenter,GB,https,rotating
+f02b9fb83fcfe2599938__cr.fr:62b9ad13e79c2472@gw.dataimpulse.com:823,dataimpulse,datacenter,FR,https,rotating
+f02b9fb83fcfe2599938__cr.ca:62b9ad13e79c2472@gw.dataimpulse.com:823,dataimpulse,datacenter,CA,https,rotating
+# ── Oxylabs example ──────────────────────────────────────────────────────────
+# customer-YOURUSER-cc-us:YOURPASS@pr.oxylabs.io:7777,oxylabs,residential,US,http,rotating
+# ── BrightData example ───────────────────────────────────────────────────────
+# YOURUSER-country-us:YOURPASS@brd.superproxy.io:22225,brightdata,residential,US,http,rotating
+# ── Smartproxy example ───────────────────────────────────────────────────────
+# user-country-us:YOURPASS@gate.smartproxy.com:7000,smartproxy,residential,US,http,rotating

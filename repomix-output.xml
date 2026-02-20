@@ -1,0 +1,3119 @@
+This file is a merged representation of a subset of the codebase, containing files not matching ignore patterns, combined into a single document by Repomix.
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of a subset of the repository's contents that is considered the most important context.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+5. Multiple file entries, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Files matching these patterns are excluded: dist/**, build/**, .next/**, package-lock.json, *.lock, .env*
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Files are sorted by Git change count (files with more changes are at the bottom)
+</notes>
+
+</file_summary>
+
+<directory_structure>
+.claude/
+  settings.local.json
+proxy_lists/
+  dataimpulse-us.txt:Zone.Identifier
+  example_gateways.csv
+  massive.txt:Zone.Identifier
+sql/
+  init_v2.sql
+  init_v3_core.sql
+  init.sql
+  seed_test.sql
+  seed.sql
+src/
+  ai/
+    groqBrain.js
+    prompts.js
+  api/
+    routes/
+      health.js
+      index.js
+      proxies.js
+  db/
+    postgres.js
+    redis.js
+  relay/
+    server.js
+  tools/
+    importCSV.js
+    importProxies.js
+    ingest.js
+    sync_dataimpulse.js
+    sync_webshare.js
+  utils/
+    config.js
+    logger.js
+    trainingLogger.js
+  server.js
+tests/
+  test_all_apis.sh
+.gitignore
+docker-compose.yml
+NOTES.md
+package.json
+smart-proxy-manager-mixed.md
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path=".claude/settings.local.json">
+{
+  "permissions": {
+    "allow": [
+      "Bash(docker compose exec:*)",
+      "Bash(curl:*)"
+    ]
+  }
+}
+</file>
+
+<file path="proxy_lists/example_gateways.csv">
+# MyProxy — Gateway Proxy Configuration
+#
+# Format:  proxy_url , provider , type , country , protocol , session_type
+#
+# proxy_url formats accepted:
+#   user:pass@host:port          ← DataImpulse / most gateway providers
+#   https://user:pass@host:port  ← explicit URL form
+#   host:port:user:pass          ← legacy colon form
+#
+# type         : datacenter | residential | mobile | isp
+# country      : ISO 3166-1 alpha-2 code  (US, DE, GB, FR, ...)
+# protocol     : http | https | socks4 | socks5
+# session_type : rotating | sticky   (optional — defaults to "rotating")
+#
+# ── DataImpulse URL formats ───────────────────────────────────────────────────
+#
+#  Rotating  (port 823, new IP every request):
+#    login__cr.{country}:pass@gw.dataimpulse.com:823
+#
+#  Sticky  (port 10000, same IP pinned for N minutes):
+#    login__cr.{country};sessttl.{minutes}:pass@gw.dataimpulse.com:10000
+#    e.g. ;sessttl.60 = pin for 60 min, ;sessttl.30 = pin for 30 min
+#
+# ─────────────────────────────────────────────────────────────────────────────
+proxy_url,provider,type,country,protocol,session_type
+# ── DataImpulse US — rotating + sticky ───────────────────────────────────────
+f02b9fb83fcfe2599938__cr.us:62b9ad13e79c2472@gw.dataimpulse.com:823,dataimpulse,datacenter,US,https,rotating
+f02b9fb83fcfe2599938__cr.us;sessttl.60:62b9ad13e79c2472@gw.dataimpulse.com:10000,dataimpulse,datacenter,US,http,sticky
+# ── DataImpulse other countries (rotating) ───────────────────────────────────
+f02b9fb83fcfe2599938__cr.de:62b9ad13e79c2472@gw.dataimpulse.com:823,dataimpulse,datacenter,DE,https,rotating
+f02b9fb83fcfe2599938__cr.gb:62b9ad13e79c2472@gw.dataimpulse.com:823,dataimpulse,datacenter,GB,https,rotating
+f02b9fb83fcfe2599938__cr.fr:62b9ad13e79c2472@gw.dataimpulse.com:823,dataimpulse,datacenter,FR,https,rotating
+f02b9fb83fcfe2599938__cr.ca:62b9ad13e79c2472@gw.dataimpulse.com:823,dataimpulse,datacenter,CA,https,rotating
+# ── Oxylabs example ──────────────────────────────────────────────────────────
+# customer-YOURUSER-cc-us:YOURPASS@pr.oxylabs.io:7777,oxylabs,residential,US,http,rotating
+# ── BrightData example ───────────────────────────────────────────────────────
+# YOURUSER-country-us:YOURPASS@brd.superproxy.io:22225,brightdata,residential,US,http,rotating
+# ── Smartproxy example ───────────────────────────────────────────────────────
+# user-country-us:YOURPASS@gate.smartproxy.com:7000,smartproxy,residential,US,http,rotating
+</file>
+
+<file path="sql/seed_test.sql">
+-- sql/seed_test.sql
+-- Test proxy rows for development/smoke-testing.
+-- Remove this file from docker-compose when moving to production.
+
+-- Rotating proxy (new IP on every request)
+-- DataImpulse rotating: port 823, username = login__cr.{country}
+INSERT INTO proxies (
+  proxy_string, ip, port, username, password,
+  protocol, provider, proxy_type, session_type, country, score, healthy
+) VALUES (
+  'https://f02b9fb83fcfe2599938__cr.us:62b9ad13e79c2472@gw.dataimpulse.com:823',
+  'gw.dataimpulse.com', 823,
+  'f02b9fb83fcfe2599938__cr.us', '62b9ad13e79c2472',
+  'https', 'dataimpulse', 'datacenter', 'rotating', 'US', 100, true
+)
+ON CONFLICT (proxy_string) DO NOTHING;
+
+-- Sticky proxy (same IP pinned for the session)
+-- DataImpulse sticky: port 10000.
+-- The sessttl (session TTL in minutes) is NOT baked into the username here;
+-- it is injected at request time from metadata.sessttl (or the ?ttl= API param).
+INSERT INTO proxies (
+  proxy_string, ip, port, username, password,
+  protocol, provider, proxy_type, session_type, country, score, healthy, metadata
+) VALUES (
+  'http://f02b9fb83fcfe2599938__cr.us:62b9ad13e79c2472@gw.dataimpulse.com:10000',
+  'gw.dataimpulse.com', 10000,
+  'f02b9fb83fcfe2599938__cr.us', '62b9ad13e79c2472',
+  'http', 'dataimpulse', 'datacenter', 'sticky', 'US', 100, true, '{"sessttl": 60}'
+)
+ON CONFLICT (proxy_string) DO NOTHING;
+</file>
+
+<file path="src/relay/server.js">
+// src/relay/server.js
+// TCP proxy relay — tunnels client traffic to the real upstream provider.
+// Clients connect using a short-lived token as the proxy username.
+// The real provider URL is never exposed to the client.
+//
+// Supports:
+//   - HTTP CONNECT  (HTTPS, SOCKS-over-HTTP tunneling)
+//   - Plain HTTP    (standard HTTP proxy forwarding)
+
+import http from "http";
+import net  from "net";
+import { redis }  from "../db/redis.js";
+import { logger } from "../utils/logger.js";
+import { config } from "../utils/config.js";
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+// Extract the relay token from the Proxy-Authorization header.
+// Clients set the proxy as:  http://TOKEN:x@relay-host:8080
+// so the token is always the username part of Basic auth.
+function extractToken(req) {
+  const auth = req.headers["proxy-authorization"];
+  if (!auth?.startsWith("Basic ")) return null;
+  const decoded = Buffer.from(auth.slice(6), "base64").toString();
+  return decoded.split(":")[0] || null;
+}
+
+// Look up the session stored by the API when it issued the token.
+async function resolveSession(token) {
+  try {
+    const raw = await redis.get(`relay:${token}`);
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) {
+    logger.error("Redis relay lookup failed:", e.message);
+    return null;
+  }
+}
+
+// Parse the real upstream proxy URL into host / port / auth-header.
+function parseUpstream(proxyUrl) {
+  const u = new URL(proxyUrl);
+  const username = u.username ? decodeURIComponent(u.username) : null;
+  const password = u.password ? decodeURIComponent(u.password) : null;
+  return {
+    host: u.hostname,
+    port: parseInt(u.port, 10),
+    authHeader: username
+      ? `Basic ${Buffer.from(`${username}:${password}`).toString("base64")}`
+      : null,
+  };
+}
+
+function deny(socket, statusLine) {
+  try {
+    socket.write(`${statusLine}\r\nContent-Length: 0\r\n\r\n`);
+  } catch {}
+  socket.destroy();
+}
+
+// ── Relay server ──────────────────────────────────────────────────────────────
+
+const server = http.createServer();
+
+// ── HTTPS: HTTP CONNECT tunnel ────────────────────────────────────────────────
+//
+// Flow:
+//   1. Client sends:  CONNECT target:443 HTTP/1.1  (with our token in Proxy-Authorization)
+//   2. We look up the real proxy from Redis by token
+//   3. We open a TCP connection to the real proxy
+//   4. We send CONNECT target:443 to the real proxy (with real credentials)
+//   5. Real proxy replies 200 → we reply 200 to client
+//   6. Raw bytes flow:  client ↔ our socket ↔ real proxy socket
+//      No HTTP parsing after this — pure byte forwarding (~zero overhead)
+
+server.on("connect", async (req, clientSocket, head) => {
+  const token = extractToken(req);
+  if (!token) {
+    return deny(clientSocket, "HTTP/1.1 407 Proxy Authentication Required\r\nProxy-Authenticate: Basic realm=\"relay\"");
+  }
+
+  const session = await resolveSession(token);
+  if (!session) {
+    return deny(clientSocket, "HTTP/1.1 403 Forbidden");
+  }
+
+  const up = parseUpstream(session.proxy_url);
+  const upSock = net.connect(up.port, up.host);
+
+  upSock.once("connect", () => {
+    // Forward the CONNECT request to the real upstream proxy
+    let msg = `CONNECT ${req.url} HTTP/1.1\r\nHost: ${req.url}\r\n`;
+    if (up.authHeader) msg += `Proxy-Authorization: ${up.authHeader}\r\n`;
+    msg += "\r\n";
+    upSock.write(msg);
+
+    // Buffer the upstream response until we have the full header block
+    let buf = Buffer.alloc(0);
+
+    upSock.on("data", function onHeader(chunk) {
+      buf = Buffer.concat([buf, chunk]);
+      const str = buf.toString();
+      const sep  = str.indexOf("\r\n\r\n");
+      if (sep === -1) return; // keep buffering
+
+      upSock.removeListener("data", onHeader);
+      const statusLine = str.split("\r\n")[0];
+
+      if (statusLine.includes("200")) {
+        // Tell the client the tunnel is open
+        clientSocket.write("HTTP/1.1 200 Connection Established\r\n\r\n");
+
+        // Any bytes after the header in the first chunk go to the client
+        const afterHeader = buf.slice(sep + 4);
+        if (afterHeader.length) clientSocket.write(afterHeader);
+        if (head.length)        upSock.write(head);
+
+        // Pure byte forwarding from here on
+        clientSocket.pipe(upSock);
+        upSock.pipe(clientSocket);
+      } else {
+        logger.warn(`Upstream rejected CONNECT for token ${token.slice(0, 8)}…: ${statusLine}`);
+        deny(clientSocket, "HTTP/1.1 502 Bad Gateway");
+        upSock.destroy();
+      }
+    });
+  });
+
+  // Error / cleanup handling
+  upSock.on("error", (e) => {
+    logger.error(`Relay upstream connect error: ${e.message}`);
+    deny(clientSocket, "HTTP/1.1 502 Bad Gateway");
+  });
+
+  clientSocket.on("error", () => upSock.destroy());
+  upSock.on("close",       () => { try { clientSocket.destroy(); } catch {} });
+  clientSocket.on("close", () => { try { upSock.destroy();       } catch {} });
+});
+
+// ── Plain HTTP proxy ──────────────────────────────────────────────────────────
+//
+// Flow:
+//   1. Client sends full-URI request:  GET http://example.com/path HTTP/1.1
+//   2. We look up the real proxy and forward the request there
+//   3. We stream the response back to the client
+
+server.on("request", async (req, res) => {
+  // Only accept absolute-URI (proxy) requests
+  if (!req.url.startsWith("http")) {
+    res.writeHead(400); return res.end("Bad Request");
+  }
+
+  const token = extractToken(req);
+  if (!token) {
+    res.writeHead(407, { "Proxy-Authenticate": 'Basic realm="relay"' });
+    return res.end();
+  }
+
+  const session = await resolveSession(token);
+  if (!session) {
+    res.writeHead(403); return res.end("Forbidden");
+  }
+
+  const up = parseUpstream(session.proxy_url);
+  const targetUrl = new URL(req.url);
+
+  // Build headers for the upstream request — swap our auth for theirs
+  const headers = { ...req.headers, host: targetUrl.host };
+  delete headers["proxy-authorization"];
+  if (up.authHeader) headers["proxy-authorization"] = up.authHeader;
+
+  const upReq = http.request(
+    { host: up.host, port: up.port, method: req.method, path: req.url, headers },
+    (upRes) => {
+      res.writeHead(upRes.statusCode, upRes.headers);
+      upRes.pipe(res);
+    }
+  );
+
+  upReq.on("error", (e) => {
+    logger.error(`HTTP relay error: ${e.message}`);
+    if (!res.headersSent) { res.writeHead(502); }
+    res.end("Bad Gateway");
+  });
+
+  req.pipe(upReq);
+});
+
+// ── Start ─────────────────────────────────────────────────────────────────────
+
+export function startRelay() {
+  const port = config.relayPort;
+  server.listen(port, () => logger.info(`Proxy relay listening on port ${port}`));
+  return server;
+}
+</file>
+
+<file path="src/tools/importCSV.js">
+// src/tools/importCSV.js
+// CSV-based importer for gateway-style proxy configurations.
+//
+// CSV format (proxy_lists/*.csv):
+//
+//   proxy_url,provider,type,country,protocol,session_type
+//   ...@gw.dataimpulse.com:823,dataimpulse,datacenter,US,https,rotating
+//   ...@gw.dataimpulse.com:824,dataimpulse,datacenter,US,https,sticky
+//
+//   session_type is optional — defaults to "rotating" when omitted.
+//
+// proxy_url formats accepted:
+//   user:pass@host:port              ← DataImpulse / most gateway providers
+//   http://user:pass@host:port       ← standard URL form
+//   host:port:user:pass              ← legacy colon-separated
+//
+// Run:
+//   node src/tools/importCSV.js [file.csv]
+//   (no argument = imports all *.csv files from proxy_lists/)
+
+import fs   from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
+import { pg }     from "../db/postgres.js";
+import { logger } from "../utils/logger.js";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const proxyDir  = path.join(__dirname, "../../proxy_lists");
+
+// ── CSV line parser (handles quoted fields) ───────────────────────────────────
+function parseCSVLine(line) {
+  const fields = [];
+  let current  = "";
+  let inQuotes = false;
+
+  for (const ch of line) {
+    if (ch === '"')      { inQuotes = !inQuotes; }
+    else if (ch === "," && !inQuotes) { fields.push(current.trim()); current = ""; }
+    else                { current += ch; }
+  }
+  fields.push(current.trim());
+  return fields;
+}
+
+// ── Proxy URL parser ──────────────────────────────────────────────────────────
+// Handles all three formats without requiring a protocol prefix.
+function parseProxyUrl(raw) {
+  raw = raw.trim();
+  if (!raw || raw.startsWith("#")) return null;
+
+  // Strip protocol prefix for uniform parsing
+  const clean = raw.replace(/^(https?|socks[45]):\/\//i, "");
+
+  let username, password, ip, port;
+
+  if (clean.includes("@")) {
+    // user:pass@host:port
+    const atIdx = clean.lastIndexOf("@");
+    const auth  = clean.slice(0, atIdx);
+    const host  = clean.slice(atIdx + 1);
+    const colonInAuth = auth.indexOf(":");
+    username = colonInAuth !== -1 ? auth.slice(0, colonInAuth) : auth;
+    password = colonInAuth !== -1 ? auth.slice(colonInAuth + 1) : null;
+    const colonInHost = host.lastIndexOf(":");
+    ip   = host.slice(0, colonInHost);
+    port = host.slice(colonInHost + 1);
+  } else {
+    const parts = clean.split(":");
+    if (parts.length >= 4) {
+      // host:port:user:pass
+      [ip, port, username, password] = parts;
+    } else if (parts.length === 2) {
+      // host:port (no auth)
+      [ip, port] = parts;
+    } else {
+      return null;
+    }
+  }
+
+  if (!ip || !port) return null;
+
+  ip       = ip.trim();
+  port     = parseInt(port.trim(), 10);
+  username = username?.trim() || null;
+  password = password?.trim() || null;
+
+  if (isNaN(port)) return null;
+
+  return { ip, port, username, password };
+}
+
+// ── Import a single CSV file ──────────────────────────────────────────────────
+async function importCSVFile(filePath) {
+  logger.info(`Importing ${path.basename(filePath)}...`);
+
+  const content = fs.readFileSync(filePath, "utf-8");
+  const lines   = content.split("\n");
+
+  let successes = 0;
+  let skipped   = 0;
+  let failures  = 0;
+
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+
+    // Skip blank lines and comment lines
+    if (!line || line.startsWith("#")) continue;
+
+    const fields = parseCSVLine(line);
+
+    // Skip the header row
+    if (fields[0].toLowerCase() === "proxy_url") continue;
+
+    if (fields.length < 5) {
+      logger.warn(`Skipping malformed line: ${line}`);
+      skipped++;
+      continue;
+    }
+
+    // session_type is optional (column 6) — defaults to "rotating"
+    const [proxy_url, provider, type, country, protocol, session_type_raw] = fields;
+    const sessionType = ["rotating", "sticky"].includes(session_type_raw?.toLowerCase())
+      ? session_type_raw.toLowerCase()
+      : "rotating";
+
+    const parsed = parseProxyUrl(proxy_url);
+    if (!parsed) {
+      logger.warn(`Could not parse proxy_url: ${proxy_url}`);
+      skipped++;
+      continue;
+    }
+
+    const { ip, port, username, password } = parsed;
+
+    // Build canonical proxy_string — always includes the protocol prefix
+    const proto       = protocol?.toLowerCase() || "http";
+    const authPart    = username ? `${username}:${password}@` : "";
+    const proxyString = `${proto}://${authPart}${ip}:${port}`;
+
+    try {
+      await pg.query(
+        `INSERT INTO proxies (
+           proxy_string, ip, port, username, password, protocol,
+           provider, proxy_type, session_type, country, score, healthy
+         ) VALUES (
+           $1, $2, $3, $4, $5, $6,
+           $7, $8, $9, $10, 100, true
+         )
+         ON CONFLICT (proxy_string)
+         DO UPDATE SET
+           updated_at   = NOW(),
+           healthy      = true,
+           provider     = EXCLUDED.provider,
+           proxy_type   = EXCLUDED.proxy_type,
+           session_type = EXCLUDED.session_type,
+           country      = EXCLUDED.country,
+           protocol     = EXCLUDED.protocol`,
+        [
+          proxyString, ip, port, username, password, proto,
+          provider?.toLowerCase()  || "unknown",
+          type?.toLowerCase()      || "datacenter",
+          sessionType,
+          country?.toUpperCase()   || "GLOBAL",
+        ]
+      );
+      successes++;
+    } catch (err) {
+      logger.error(`DB insert failed for ${proxy_url}: ${err.message}`);
+      failures++;
+    }
+  }
+
+  logger.info(
+    `${path.basename(filePath)}: inserted/updated=${successes}, skipped=${skipped}, failed=${failures}`
+  );
+}
+
+// ── Entry point ───────────────────────────────────────────────────────────────
+async function run() {
+  const arg = process.argv[2];
+
+  let files;
+  if (arg) {
+    // Specific file provided on command line
+    const resolved = path.isAbsolute(arg) ? arg : path.join(process.cwd(), arg);
+    if (!fs.existsSync(resolved)) {
+      logger.error(`File not found: ${resolved}`);
+      process.exit(1);
+    }
+    files = [resolved];
+  } else {
+    // Default: all *.csv in proxy_lists/
+    if (!fs.existsSync(proxyDir)) {
+      logger.warn(`proxy_lists/ directory not found at ${proxyDir}`);
+      process.exit(0);
+    }
+    files = fs.readdirSync(proxyDir)
+      .filter(f => f.endsWith(".csv"))
+      .map(f => path.join(proxyDir, f));
+
+    if (!files.length) {
+      logger.warn("No .csv files found in proxy_lists/");
+      process.exit(0);
+    }
+  }
+
+  for (const file of files) {
+    await importCSVFile(file);
+  }
+
+  logger.info("CSV import complete.");
+  await pg.end();
+}
+
+run().catch(err => {
+  logger.error("CSV import failed:", err);
+  process.exit(1);
+});
+</file>
+
+<file path="src/tools/ingest.js">
+// src/tools/ingest.js
+import fs from "fs";
+import path from "path";
+import { pg } from "../db/postgres.js";
+import { logger } from "../utils/logger.js";
+
+/**
+ * Parses a proxy line into a standardized object.
+ * Supported formats:
+ * - http://user:pass@ip:port
+ * - ip:port:user:pass
+ * - ip:port
+ */
+function parseProxyLine(line, protocolOverride = null) {
+    line = line.trim();
+    if (!line || line.startsWith("#")) return null;
+
+    // Remove protocol prefixes for parsing
+    const cleanLine = line.replace(/^(http|https|socks5|socks4):\/\//i, "");
+
+    let username, password, ip, port;
+
+    if (cleanLine.includes("@")) {
+        const [auth, host] = cleanLine.split("@");
+        [username, password] = auth.split(":");
+        [ip, port] = host.split(":");
+    } else if (cleanLine.split(":").length >= 4) {
+        [ip, port, username, password] = cleanLine.split(":");
+    } else if (cleanLine.split(":").length === 2) {
+        [ip, port] = cleanLine.split(":");
+    }
+
+    if (!ip || !port) return null;
+
+    ip = ip.trim();
+    port = parseInt(port.trim(), 10);
+    username = username?.trim() || null;
+    password = password?.trim() || null;
+
+    let protocol = protocolOverride;
+    if (!protocol) {
+        protocol = line.toLowerCase().startsWith("socks") ? "socks5" : "http";
+    }
+
+    const authPart = username ? `${username}:${password}@` : "";
+    const proxy_string = `${protocol}://${authPart}${ip}:${port}`;
+
+    return {
+        ip, port, username, password,
+        proxy_string,
+        protocol
+    };
+}
+
+
+// Helper to fetch content from URL or File
+async function getContent(source) {
+    if (source.startsWith("http://") || source.startsWith("https://")) {
+        logger.info(`Fetching proxies from URL: ${source}`);
+        const res = await fetch(source);
+        if (!res.ok) throw new Error(`Failed to fetch URL: ${res.statusText}`);
+        return await res.text();
+    } else {
+        if (!fs.existsSync(source)) throw new Error(`File not found: ${source}`);
+        return fs.readFileSync(source, "utf-8");
+    }
+}
+
+export async function ingestProxies({ source, provider, type, country, protocol }) {
+    logger.info(`Starting ingestion from ${source} for provider ${provider}...`);
+
+    try {
+        const content = await getContent(source);
+        const lines = content.split("\n");
+        let successes = 0;
+        let failures = 0;
+
+        for (const line of lines) {
+            const parsed = parseProxyLine(line, protocol);
+            if (!parsed) continue;
+
+            try {
+                await pg.query(`
+          INSERT INTO proxies (
+            proxy_string, ip, port, username, password, protocol,
+            provider, proxy_type, country, score, healthy
+          ) VALUES (
+            $1, $2, $3, $4, $5, $6,
+            $7, $8, $9, 100, true
+          )
+          ON CONFLICT (proxy_string)
+          DO UPDATE SET updated_at = NOW(), healthy = true
+        `, [
+                    parsed.proxy_string,
+                    parsed.ip,
+                    parsed.port,
+                    parsed.username,
+                    parsed.password,
+                    parsed.protocol,
+                    provider,
+                    type || "datacenter",
+                    country || "unknown"
+                ]);
+                successes++;
+            } catch (err) {
+                // Silently fail on duplicates if needed, or log error
+                failures++;
+            }
+        }
+
+        logger.info(`Ingestion Complete. Added/Updated: ${successes}, Failed/Skipped: ${failures}`);
+    } catch (err) {
+        logger.error("Ingestion Fatal Error:", err.message);
+    }
+}
+
+// Allow running directly: node src/tools/ingest.js <url_or_file> <provider> <type> <country>
+if (import.meta.url === `file://${process.argv[1]}`) {
+    const [, , source, provider, type, country] = process.argv;
+    if (!source || !provider) {
+        console.log("Usage: node src/tools/ingest.js <url_or_file> <provider_name> [type] [country]");
+    } else {
+        ingestProxies({ source, provider, type, country })
+            .then(() => process.exit(0))
+            .catch(e => { console.error(e); process.exit(1); });
+    }
+}
+</file>
+
+<file path="src/tools/sync_dataimpulse.js">
+// src/tools/sync_dataimpulse.js
+import { ingestProxies } from "./ingest.js";
+import { logger } from "../utils/logger.js";
+
+async function syncDataImpulse() {
+    const login = process.env.DATAIMPULSE_LOGIN;
+    const password = process.env.DATAIMPULSE_PASSWORD;
+
+    if (!login || !password) {
+        logger.error("Missing DATAIMPULSE_LOGIN / DATAIMPULSE_PASSWORD in .env");
+        process.exit(1);
+    }
+
+    logger.info("Syncing DataImpulse Proxies via API...");
+
+    // Endpoint logic provided by user
+    const baseUrl = "https://gw.dataimpulse.com:777/api/list";
+    const params = new URLSearchParams({
+        quantity: process.env.DATAIMPULSE_QUANTITY || "1000",
+        type: "sticky",
+        format: "login:password@hostname:port",
+        protocol: "http",
+        session_ttl: "60"
+    });
+
+    const apiUrl = `${baseUrl}?${params.toString()}`;
+    const auth = Buffer.from(`${login}:${password}`).toString("base64");
+
+    try {
+        logger.info(`Fetching: ${apiUrl}`);
+        const response = await fetch(apiUrl, {
+            headers: { "Authorization": `Basic ${auth}` }
+        });
+
+        if (!response.ok) throw new Error(`API Error: ${response.status}`);
+
+        const text = await response.text();
+        const tempFile = `/tmp/dataimpulse_sync_${Date.now()}.txt`;
+        const fs = (await import("fs")).default;
+        fs.writeFileSync(tempFile, text);
+
+        await ingestProxies({
+            source: tempFile,
+            provider: "dataimpulse",
+            type: "datacenter",
+            country: "global"
+        });
+
+        fs.unlinkSync(tempFile);
+        logger.info("Sync Completed");
+
+    } catch (err) {
+        logger.error("Sync Failed:", err);
+        process.exit(1);
+    }
+}
+
+if (import.meta.url === `file://${process.argv[1]}`) {
+    syncDataImpulse();
+}
+</file>
+
+<file path="src/tools/sync_webshare.js">
+// src/tools/sync_webshare.js
+import { pg } from "../db/postgres.js";
+import { config } from "../utils/config.js";
+import { logger } from "../utils/logger.js";
+
+async function syncWebshare() {
+    if (!config.webshareApiKey) {
+        logger.error("Missing WEBSHARE_API_KEY in environment/config");
+        process.exit(1);
+    }
+
+    logger.info("Fetching proxy list from Webshare...");
+
+    try {
+        // 1. Fetch from Webshare API
+        // Documentation: https://proxy.webshare.io/api/v2/proxy/list/
+        const response = await fetch("https://proxy.webshare.io/api/v2/proxy/list/?mode=direct&page_size=250", {
+            headers: {
+                "Authorization": `Token ${config.webshareApiKey}`
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`API returned ${response.status}: ${res.statusText}`);
+        }
+
+        const data = await response.json();
+        const proxies = data.results || [];
+
+        if (proxies.length === 0) {
+            logger.warn("Webshare returned 0 proxies.");
+            return;
+        }
+
+        logger.info(`Fetched ${proxies.length} proxies. Syncing to DB...`);
+
+        let added = 0;
+
+        // 2. Ingest into DB
+        for (const p of proxies) {
+            // Webshare object: { ip, port, username, password, country_code, ... }
+            const proxyString = `http://${p.username}:${p.password}@${p.proxy_address}:${p.port}`;
+
+            await pg.query(`
+        INSERT INTO proxies (
+          proxy_string, ip, port, username, password, protocol,
+          provider, proxy_type, country, score, healthy, external_id
+        ) VALUES (
+          $1, $2, $3, $4, $5, 'http',
+          'webshare', 'datacenter', $6, 100, true, $7
+        )
+        ON CONFLICT (proxy_string)
+        DO UPDATE SET
+          updated_at = NOW(),
+          healthy    = true,
+          country    = EXCLUDED.country
+      `, [
+                proxyString,
+                p.proxy_address,
+                p.port,
+                p.username,
+                p.password,
+                p.country_code,
+                p.id // external_id if available or just skip
+            ]);
+            added++;
+        }
+
+        logger.info(`Sync Complete. Processed ${added} proxies.`);
+
+    } catch (err) {
+        logger.error("Webshare Sync Failed:", err);
+    }
+}
+
+// Run if called directly
+if (import.meta.url === `file://${process.argv[1]}`) {
+    syncWebshare()
+        .then(() => process.exit(0))
+        .catch(() => process.exit(1));
+}
+</file>
+
+<file path="tests/test_all_apis.sh">
+#!/usr/bin/env bash
+# ============================================================================
+# Comprehensive API Test Suite for Proxy Manager
+# Tests all endpoints: /health, /v1/proxy, /v1/providers, /v1/proxy/report
+# ============================================================================
+
+BASE="http://localhost:3100"
+PASS=0
+FAIL=0
+TOTAL=0
+
+# Colors
+GREEN='\033[0;32m'
+RED='\033[0;31m'
+YELLOW='\033[1;33m'
+CYAN='\033[0;36m'
+NC='\033[0m' # No Color
+BOLD='\033[1m'
+
+run_test() {
+  local name="$1"
+  local method="$2"
+  local url="$3"
+  local expected_status="$4"
+  local body="$5"       # optional JSON body for POST
+  local check_key="$6"  # optional key to check in response JSON
+
+  TOTAL=$((TOTAL + 1))
+
+  printf "\n${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}\n"
+  printf "${BOLD}TEST #%d: %s${NC}\n" "$TOTAL" "$name"
+  printf "${YELLOW}  → %s %s${NC}\n" "$method" "$url"
+  if [ -n "$body" ]; then
+    printf "${YELLOW}  → Body: %s${NC}\n" "$body"
+  fi
+
+  if [ "$method" = "POST" ]; then
+    response=$(curl -s -w "\n%{http_code}" -X POST \
+      -H "Content-Type: application/json" \
+      -d "$body" \
+      "$url" 2>&1)
+  else
+    response=$(curl -s -w "\n%{http_code}" "$url" 2>&1)
+  fi
+
+  http_code=$(echo "$response" | tail -1)
+  resp_body=$(echo "$response" | sed '$d')
+
+  printf "  ← Status: %s (expected: %s)\n" "$http_code" "$expected_status"
+  printf "  ← Body:   %s\n" "$resp_body"
+
+  if [ "$http_code" = "$expected_status" ]; then
+    if [ -n "$check_key" ]; then
+      if echo "$resp_body" | grep -q "$check_key"; then
+        printf "  ${GREEN}✅ PASSED${NC} (status matched + key '%s' found)\n" "$check_key"
+        PASS=$((PASS + 1))
+      else
+        printf "  ${RED}❌ FAILED${NC} (status matched but key '%s' NOT found)\n" "$check_key"
+        FAIL=$((FAIL + 1))
+      fi
+    else
+      printf "  ${GREEN}✅ PASSED${NC}\n"
+      PASS=$((PASS + 1))
+    fi
+  else
+    printf "  ${RED}❌ FAILED${NC} (expected %s, got %s)\n" "$expected_status" "$http_code"
+    FAIL=$((FAIL + 1))
+  fi
+}
+
+# ============================================================================
+echo ""
+echo "╔══════════════════════════════════════════════════════════════╗"
+echo "║        🧪 Proxy Manager API — Full Test Suite 🧪           ║"
+echo "╠══════════════════════════════════════════════════════════════╣"
+echo "║  Base URL: $BASE                             ║"
+echo "╚══════════════════════════════════════════════════════════════╝"
+
+# ============================================================================
+# 1. HEALTH CHECK
+# ============================================================================
+echo ""
+echo "┌──────────────────────────────────────────────────────────────┐"
+echo "│  📡 Section 1: Health Check                                  │"
+echo "└──────────────────────────────────────────────────────────────┘"
+
+run_test "Health endpoint returns OK" \
+  GET "$BASE/health" 200 "" '"status":"ok"'
+
+# ============================================================================
+# 2. GET /v1/providers — Provider Catalog
+# ============================================================================
+echo ""
+echo "┌──────────────────────────────────────────────────────────────┐"
+echo "│  📊 Section 2: Provider Catalog                              │"
+echo "└──────────────────────────────────────────────────────────────┘"
+
+run_test "Providers catalog returns data" \
+  GET "$BASE/v1/providers" 200 "" '"providers"'
+
+# ============================================================================
+# 3. GET /v1/proxy — Fetch Proxy (various scenarios)
+# ============================================================================
+echo ""
+echo "┌──────────────────────────────────────────────────────────────┐"
+echo "│  🔀 Section 3: Fetch Proxy (GET /v1/proxy)                   │"
+echo "└──────────────────────────────────────────────────────────────┘"
+
+# 3a. Basic proxy fetch (no filters — should return a rotating proxy)
+run_test "Fetch any rotating proxy (no filters)" \
+  GET "$BASE/v1/proxy" 200 "" '"proxy_url"'
+
+# 3b. Fetch by country
+run_test "Fetch proxy by country=US" \
+  GET "$BASE/v1/proxy?country=US" 200 "" '"proxy_url"'
+
+# 3c. Fetch by proxy type
+run_test "Fetch proxy by type=datacenter" \
+  GET "$BASE/v1/proxy?type=datacenter" 200 "" '"proxy_url"'
+
+# 3d. Fetch by proxy type using 'proxy' alias
+run_test "Fetch proxy using proxy= alias (proxy=datacenter)" \
+  GET "$BASE/v1/proxy?proxy=datacenter" 200 "" '"proxy_url"'
+
+# 3e. Fetch by provider
+run_test "Fetch proxy by provider=dataimpulse" \
+  GET "$BASE/v1/proxy?provider=dataimpulse" 200 "" '"proxy_url"'
+
+# 3f. Combined filters
+run_test "Fetch proxy with combined filters (country=US, type=datacenter)" \
+  GET "$BASE/v1/proxy?country=US&type=datacenter" 200 "" '"proxy_url"'
+
+# 3g. Fetch with least_used strategy
+run_test "Fetch proxy with strategy=least_used" \
+  GET "$BASE/v1/proxy?strategy=least_used" 200 "" '"proxy_url"'
+
+# 3h. Fetch sticky proxy
+run_test "Fetch sticky proxy" \
+  GET "$BASE/v1/proxy?sticky=true" 200 "" '"proxy_url"'
+
+# 3i. Fetch sticky proxy with custom TTL
+run_test "Fetch sticky proxy with ttl=30" \
+  GET "$BASE/v1/proxy?sticky=true&ttl=30" 200 "" '"proxy_url"'
+
+# ============================================================================
+# 4. GET /v1/proxy — Validation / Error Cases
+# ============================================================================
+echo ""
+echo "┌──────────────────────────────────────────────────────────────┐"
+echo "│  ⚠️  Section 4: Input Validation / Error Cases               │"
+echo "└──────────────────────────────────────────────────────────────┘"
+
+# 4a. Invalid proxy type
+run_test "Invalid type returns 400" \
+  GET "$BASE/v1/proxy?type=INVALID" 400 "" '"error"'
+
+# 4b. Invalid protocol
+run_test "Invalid protocol returns 400" \
+  GET "$BASE/v1/proxy?protocol=ftp" 400 "" '"error"'
+
+# 4c. Invalid anonymity
+run_test "Invalid anonymity returns 400" \
+  GET "$BASE/v1/proxy?anonymity=super" 400 "" '"error"'
+
+# 4d. Invalid strategy
+run_test "Invalid strategy returns 400" \
+  GET "$BASE/v1/proxy?strategy=fastest" 400 "" '"error"'
+
+# 4e. Invalid TTL (too low)
+run_test "TTL=0 returns 400" \
+  GET "$BASE/v1/proxy?sticky=true&ttl=0" 400 "" '"error"'
+
+# 4f. Invalid TTL (too high)
+run_test "TTL=9999 returns 400" \
+  GET "$BASE/v1/proxy?sticky=true&ttl=9999" 400 "" '"error"'
+
+# 4g. Invalid TTL (non-number)
+run_test "TTL=abc returns 400" \
+  GET "$BASE/v1/proxy?sticky=true&ttl=abc" 400 "" '"error"'
+
+# 4h. No matching proxy (obscure country)
+run_test "Non-existent country returns 404" \
+  GET "$BASE/v1/proxy?country=ZZ" 404 "" '"error"'
+
+# 4i. No matching proxy (wrong type for sticky)
+run_test "Mobile sticky proxy returns 404 (no such data)" \
+  GET "$BASE/v1/proxy?sticky=true&type=mobile" 404 "" '"error"'
+
+# ============================================================================
+# 5. POST /v1/proxy/report — Report Feedback
+# ============================================================================
+echo ""
+echo "┌──────────────────────────────────────────────────────────────┐"
+echo "│  📝 Section 5: Report Proxy Usage (POST /v1/proxy/report)    │"
+echo "└──────────────────────────────────────────────────────────────┘"
+
+# First grab a real proxy_id from the DB
+PROXY_ID=$(curl -s "$BASE/v1/proxy" | grep -o '"id":[0-9]*' | head -1 | cut -d: -f2)
+echo "  ℹ️  Resolved proxy_id for reports: $PROXY_ID"
+
+# 5a. Report success
+run_test "Report success (by proxy_id)" \
+  POST "$BASE/v1/proxy/report" 200 \
+  "{\"proxy_id\": $PROXY_ID, \"status\": \"success\", \"latency_ms\": 200, \"target_domain\": \"example.com\"}" \
+  '"success":true'
+
+# 5b. Report blocked
+run_test "Report blocked (by proxy_id)" \
+  POST "$BASE/v1/proxy/report" 200 \
+  "{\"proxy_id\": $PROXY_ID, \"status\": \"blocked\", \"latency_ms\": 5000, \"target_domain\": \"tough-site.com\"}" \
+  '"success":true'
+
+# 5c. Report timeout
+run_test "Report timeout" \
+  POST "$BASE/v1/proxy/report" 200 \
+  "{\"proxy_id\": $PROXY_ID, \"status\": \"timeout\", \"latency_ms\": 30000, \"target_domain\": \"slow-site.com\"}" \
+  '"success":true'
+
+# 5d. Report captcha
+run_test "Report captcha" \
+  POST "$BASE/v1/proxy/report" 200 \
+  "{\"proxy_id\": $PROXY_ID, \"status\": \"captcha\", \"target_domain\": \"captcha-site.com\"}" \
+  '"success":true'
+
+# 5e. Report slow
+run_test "Report slow" \
+  POST "$BASE/v1/proxy/report" 200 \
+  "{\"proxy_id\": $PROXY_ID, \"status\": \"slow\", \"latency_ms\": 15000, \"target_domain\": \"slow.io\"}" \
+  '"success":true'
+
+# 5f. Report error
+run_test "Report error" \
+  POST "$BASE/v1/proxy/report" 200 \
+  "{\"proxy_id\": $PROXY_ID, \"status\": \"error\", \"target_domain\": \"broken.net\"}" \
+  '"success":true'
+
+# 5g. Report by proxy_ip instead of proxy_id
+run_test "Report by proxy_ip (gw.dataimpulse.com)" \
+  POST "$BASE/v1/proxy/report" 200 \
+  '{"proxy_ip": "gw.dataimpulse.com", "status": "success", "latency_ms": 150, "target_domain": "ip-test.com"}' \
+  '"success":true'
+
+# ============================================================================
+# 6. POST /v1/proxy/report — Validation / Error Cases
+# ============================================================================
+echo ""
+echo "┌──────────────────────────────────────────────────────────────┐"
+echo "│  ⚠️  Section 6: Report Validation / Error Cases              │"
+echo "└──────────────────────────────────────────────────────────────┘"
+
+# 6a. Missing status field
+run_test "Report without status returns 400" \
+  POST "$BASE/v1/proxy/report" 400 \
+  '{"proxy_id": 1}' \
+  '"error"'
+
+# 6b. Invalid status value
+run_test "Report with invalid status returns 400" \
+  POST "$BASE/v1/proxy/report" 400 \
+  '{"proxy_id": 1, "status": "unknown"}' \
+  '"error"'
+
+# 6c. Missing proxy_id AND proxy_ip
+run_test "Report without proxy identifier returns 404" \
+  POST "$BASE/v1/proxy/report" 404 \
+  '{"status": "success"}' \
+  '"error"'
+
+# 6d. Non-existent proxy_ip
+run_test "Report with non-existent proxy_ip returns 404" \
+  POST "$BASE/v1/proxy/report" 404 \
+  '{"proxy_ip": "0.0.0.0", "status": "success"}' \
+  '"error"'
+
+# ============================================================================
+# 7. Verify Score Changes After Reports
+# ============================================================================
+echo ""
+echo "┌──────────────────────────────────────────────────────────────┐"
+echo "│  📈 Section 7: Score/Stats Verification After Reports        │"
+echo "└──────────────────────────────────────────────────────────────┘"
+
+# Re-fetch the proxy to see updated stats
+TOTAL=$((TOTAL + 1))
+printf "\n${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}\n"
+printf "${BOLD}TEST #%d: Verify proxy score was updated after reports${NC}\n" "$TOTAL"
+
+score_resp=$(curl -s "$BASE/v1/proxy")
+score=$(echo "$score_resp" | grep -o '"score":[0-9.]*' | head -1 | cut -d: -f2)
+
+if [ -n "$score" ]; then
+  printf "  ← Current score: %s\n" "$score"
+  printf "  ${GREEN}✅ PASSED${NC} (score field present and accessible)\n"
+  PASS=$((PASS + 1))
+else
+  printf "  ${RED}❌ FAILED${NC} (could not read score)\n"
+  FAIL=$((FAIL + 1))
+fi
+
+# ============================================================================
+# SUMMARY
+# ============================================================================
+echo ""
+echo "╔══════════════════════════════════════════════════════════════╗"
+echo "║                   📋 TEST RESULTS SUMMARY                   ║"
+echo "╠══════════════════════════════════════════════════════════════╣"
+printf "║  Total Tests:  %-5d                                       ║\n" "$TOTAL"
+printf "║  ${GREEN}Passed:        %-5d${NC}                                       ║\n" "$PASS"
+printf "║  ${RED}Failed:        %-5d${NC}                                       ║\n" "$FAIL"
+echo "╠══════════════════════════════════════════════════════════════╣"
+if [ "$FAIL" -eq 0 ]; then
+  echo "║  🎉 ALL TESTS PASSED!                                      ║"
+else
+  echo "║  ⚠️  Some tests failed — review output above               ║"
+fi
+echo "╚══════════════════════════════════════════════════════════════╝"
+echo ""
+
+exit $FAIL
+</file>
+
+<file path="sql/init_v2.sql">
+-- sql/init_v2.sql
+-- Clean, enterprise-ready schema for AI-powered proxy manager
+
+DROP TABLE IF EXISTS proxy_usage_logs CASCADE;
+DROP TABLE IF EXISTS provider_performance CASCADE;
+DROP TABLE IF EXISTS routing_rules CASCADE;
+DROP TABLE IF EXISTS proxies CASCADE;
+
+CREATE TABLE proxies (
+  id SERIAL PRIMARY KEY,
+  proxy_string TEXT NOT NULL,           -- e.g., http://user:pass@ip:port
+  ip TEXT NOT NULL,
+  port INT NOT NULL,
+  username TEXT,
+  password TEXT,
+  protocol TEXT DEFAULT 'http',
+  provider TEXT NOT NULL,               -- oxylabs, brightdata, webshare, etc.
+  proxy_type TEXT NOT NULL,             -- datacenter, residential, mobile, isp, rotating, static
+  country TEXT,
+  city TEXT,
+  asn TEXT,
+  score DECIMAL DEFAULT 100.0,
+  healthy BOOLEAN DEFAULT true,
+  consecutive_fails INT DEFAULT 0,
+  success_count INT DEFAULT 0,
+  fail_count INT DEFAULT 0,
+  avg_latency_ms INT DEFAULT 0,
+  last_used TIMESTAMP,
+  last_success TIMESTAMP,
+  last_fail TIMESTAMP,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+  UNIQUE(ip, port, provider)
+);
+
+CREATE TABLE proxy_usage_logs (
+  id SERIAL PRIMARY KEY,
+  proxy_id INT REFERENCES proxies(id) ON DELETE SET NULL,
+  target_domain TEXT NOT NULL,
+  target_url TEXT,
+  script_id TEXT,
+  geo_required TEXT,
+  status TEXT NOT NULL CHECK (status IN ('success', 'blocked', 'timeout', 'captcha', 'slow', 'error')),
+  latency_ms INT,
+  http_status INT,
+  notes TEXT,
+  training_json JSONB,                  -- Full training-ready example
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE provider_performance (
+  id SERIAL PRIMARY KEY,
+  provider TEXT NOT NULL,
+  proxy_type TEXT NOT NULL,
+  target_domain TEXT,
+  success_rate DECIMAL DEFAULT 1.0,
+  avg_latency_ms INT,
+  block_rate DECIMAL DEFAULT 0.0,
+  total_requests INT DEFAULT 0,
+  last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(provider, proxy_type, target_domain)
+);
+
+CREATE TABLE routing_rules (
+  id SERIAL PRIMARY KEY,
+  name TEXT NOT NULL,
+  target_pattern TEXT,                  -- e.g., "%.amazon.com"
+  script_id TEXT,
+  geo_required TEXT,
+  preferred_provider TEXT,
+  preferred_type TEXT,
+  forbidden_provider TEXT,
+  forbidden_type TEXT,
+  priority INT DEFAULT 1,
+  active BOOLEAN DEFAULT true,
+  reason TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Indexes for speed
+CREATE INDEX idx_proxies_healthy_score ON proxies(healthy, score DESC);
+CREATE INDEX idx_logs_target ON proxy_usage_logs(target_domain, created_at DESC);
+CREATE INDEX idx_performance_provider ON provider_performance(provider, proxy_type);
+CREATE INDEX idx_rules_target ON routing_rules(target_pattern);
+</file>
+
+<file path="sql/seed.sql">
+INSERT INTO proxies (ip, port, username, password, protocol, provider, region, type, score, healthy) VALUES
+('p.webshare.io',80,'omgfwsyp-1','1iin2otw4dk9','http','webshare','global','internal',100,true),
+('p.webshare.io',80,'omgfwsyp-2','1iin2otw4dk9','http','webshare','global','internal',100,true),
+('p.webshare.io',80,'omgfwsyp-3','1iin2otw4dk9','http','webshare','global','internal',100,true),
+('p.webshare.io',80,'omgfwsyp-4','1iin2otw4dk9','http','webshare','global','internal',100,true),
+('p.webshare.io',80,'omgfwsyp-5','1iin2otw4dk9','http','webshare','global','internal',100,true),
+('p.webshare.io',80,'omgfwsyp-6','1iin2otw4dk9','http','webshare','global','internal',100,true),
+('p.webshare.io',80,'omgfwsyp-7','1iin2otw4dk9','http','webshare','global','internal',100,true),
+('p.webshare.io',80,'omgfwsyp-8','1iin2otw4dk9','http','webshare','global','internal',100,true),
+('p.webshare.io',80,'omgfwsyp-9','1iin2otw4dk9','http','webshare','global','internal',100,true),
+('p.webshare.io',80,'omgfwsyp-10','1iin2otw4dk9','http','webshare','global','internal',100,true);
+</file>
+
+<file path="src/ai/groqBrain.js">
+import OpenAI from "openai";
+import { config } from "../utils/config.js";
+import { pg } from "../db/postgres.js";
+import { redis } from "../db/redis.js";
+import { PROXY_ROUTING_PROMPT } from "./prompts.js";
+
+const groq = new OpenAI({
+  apiKey: config.groqApiKey,
+  baseURL: "https://api.groq.com/openai/v1"
+});
+
+async function getStatsSummary() {
+  const { rows } = await pg.query(`
+    SELECT provider, proxy_type, 
+           success_rate, avg_latency_ms, block_rate
+    FROM provider_performance 
+    WHERE total_requests > 10
+    ORDER BY success_rate DESC
+    LIMIT 20
+  `);
+  if (rows.length === 0) return "No performance data yet — prefer residential providers.";
+  return rows.map(r => 
+    `- ${r.provider} ${r.proxy_type}: ${ (r.success_rate*100).toFixed(1) }% success, ${r.avg_latency_ms}ms avg, ${ (r.block_rate*100).toFixed(1) }% blocks`
+  ).join("\n");
+}
+
+async function getActiveRules(targetDomain) {
+  const { rows } = await pg.query(`
+    SELECT preferred_provider, preferred_type, reason
+    FROM routing_rules 
+    WHERE active = true 
+      AND $1 ILIKE target_pattern
+    ORDER BY priority DESC
+  `, [targetDomain]);
+  return rows.length > 0 ? rows.map(r => `${r.preferred_provider || 'any'} ${r.preferred_type || ''} (${r.reason || 'manual'})`).join(", ") : "None";
+}
+
+export async function getBestProxyRecommendation({ targetUrl, geo, script }) {
+  const domain = new URL(targetUrl).hostname;
+
+  // Cache key
+  const cacheKey = `proxy:decision:${domain}:${geo || 'any'}:${script || 'default'}`;
+  const cached = await redis.get(cacheKey);
+  if (cached) return JSON.parse(cached);
+
+  const stats = await getStatsSummary();
+  const rules = await getActiveRules(`%${domain}%`);
+
+  const prompt = PROXY_ROUTING_PROMPT
+    .replace("{{STATS_SUMMARY}}", stats)
+    .replace("{{TARGET_DOMAIN}}", domain)
+    .replace("{{TARGET_URL}}", targetUrl)
+    .replace("{{GEO}}", geo || "any")
+    .replace("{{SCRIPT}}", script || "unknown")
+    .replace("{{RULES}}", rules);
+
+  try {
+    const response = await groq.chat.completions.create({
+      model: "llama3-8b-8192", // Fast & cheap
+      messages: [{ role: "user", content: prompt }],
+      response_format: { type: "json_object" },
+      temperature: 0.3
+    });
+
+    const decision = JSON.parse(response.choices[0].message.content);
+
+    // Cache for 5 minutes
+    await redis.set(cacheKey, JSON.stringify(decision), "EX", 300);
+
+    return decision;
+  } catch (err) {
+    // Fallback: simple score-based
+    return { recommended_provider: null, recommended_type: "residential", reason: "Groq error — fallback to residential" };
+  }
+}
+</file>
+
+<file path="src/ai/prompts.js">
+export const PROXY_ROUTING_PROMPT = `
+You are an elite proxy routing AI for large-scale web scraping.
+
+Guidelines:
+- Prioritize success rate > latency > cost
+- Use residential/mobile/ISP for anti-bot sites (e-commerce, social, search engines)
+- Use datacenter only for easy targets
+- Respect manual rules if any
+- Avoid providers with high block_rate or recent fails
+
+Current performance summary:
+{{STATS_SUMMARY}}
+
+Target domain: {{TARGET_DOMAIN}}
+Full URL: {{TARGET_URL}}
+Required geo: {{GEO}}
+Script: {{SCRIPT}}
+
+Manual rules active: {{RULES}}
+
+Return ONLY valid JSON:
+{
+  "recommended_provider": "string",
+  "recommended_type": "residential|datacenter|mobile|isp|rotating|static",
+  "reason": "short explanation"
+}
+`.trim();
+</file>
+
+<file path="src/api/routes/health.js">
+import { Router } from "express";
+const router = Router();
+router.get("/health",(req,res)=>res.send({status:"ok",uptime:process.uptime(),ts:new Date()}));
+export default router;
+</file>
+
+<file path="src/db/postgres.js">
+import pkg from "pg";
+import { config } from "../utils/config.js";
+import { logger } from "../utils/logger.js";
+const { Pool } = pkg;
+export const pg = new Pool({ connectionString: config.postgresUrl });
+pg.connect().then(()=>logger.info("Connected to Postgres")).catch(e=>logger.error("Postgres error:",e));
+</file>
+
+<file path="src/utils/logger.js">
+export const logger = {
+  info: (...a)=>console.log("[INFO]",...a),
+  error: (...a)=>console.error("[ERROR]",...a),
+  warn: (...a)=>console.warn("[WARN]",...a)
+};
+</file>
+
+<file path="src/utils/trainingLogger.js">
+// src/utils/trainingLogger.js
+import { pg } from "../db/postgres.js";
+import { logger } from "./logger.js";
+
+export async function logTrainingExample(example) {
+  try {
+    // Insert into usage logs with training_json
+    await pg.query(`
+      INSERT INTO proxy_usage_logs (
+        proxy_id, target_domain, target_url, script_id, geo_required,
+        status, latency_ms, http_status, notes, training_json, created_at
+      ) VALUES (
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW()
+      )
+    `, [
+      example.proxy_id || null,
+      example.target_domain,
+      example.target_url || null,
+      example.script_id || null,
+      example.geo_required || null,
+      example.status,
+      example.latency_ms || null,
+      example.http_status || null,
+      example.notes || null,
+      example.training_json
+    ]);
+
+    logger.info(`[TRAINING] Logged example: ${example.status} on ${example.target_domain}`);
+  } catch (err) {
+    logger.error("Failed to log training example:", err);
+  }
+}
+</file>
+
+<file path="src/server.js">
+import express from "express";
+import api from "./api/routes/index.js";
+import { startRelay } from "./relay/server.js";
+import { config } from "./utils/config.js";
+import { logger } from "./utils/logger.js";
+
+const app = express();
+app.use(express.json());
+app.use("/", api);
+app.listen(config.port, () => logger.info(`Proxy Manager API running on port ${config.port}`));
+
+// Start the proxy relay on its own port (same process).
+// Only meaningful when RELAY_HOST is set in the environment.
+startRelay();
+</file>
+
+<file path=".gitignore">
+# Ignore proxy lists (they may contain credentials)
+proxy_lists/*.txt
+
+# Node.js dependencies
+node_modules/
+
+# Environment files
+.env
+.env.local
+.env.development
+.env.production
+
+# Docker-related
+postgres_data/
+redis_data/
+*.log
+
+# OS/system files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+
+# Build outputs (if we later add build step)
+dist/
+build/
+</file>
+
+<file path="NOTES.md">
+# 🗒️ Project Notes — MyProxy
+
+**Purpose:**  
+A scalable Proxy Manager service designed for internal use and customer distribution.  
+Built with **Node.js + Express**, **PostgreSQL**, and **Redis**, running under **Docker** inside **WSL2**.
+
+---
+
+## ⚙️ Current Stack Overview
+
+| Component | Description |
+|------------|-------------|
+| **Node.js (App)** | REST API handling proxy allocation, release, and health endpoints |
+| **PostgreSQL** | Stores proxy data, usage logs, and health stats |
+| **Redis** | Used for caching, sessions, and job queues (future use) |
+| **Docker Compose** | Manages all services and container networking |
+| **WSL2 (Ubuntu)** | Linux environment for development on Windows |
+| **GitHub Repo** | Version control and CI/CD integration |
+
+---
+
+## 🚀 How to Run
+
+```bash
+docker compose up --build
+Check if the API is live:
+
+bash
+Copy code
+curl http://localhost:3000/health
+Expected output:
+
+json
+Copy code
+{"status":"ok","uptime":12.34,"ts":"2025-11-03T10:36:04.216Z"}
+🧩 Current Routes
+Endpoint	Method	Description
+/health	GET	Check server uptime and API availability
+/v1/proxies/random	GET	Return one random healthy proxy from the database
+
+🐘 Database (PostgreSQL)
+Database Name: myproxy
+
+Tables:
+
+proxies → stores proxy IPs, credentials, type (http/socks5), provider, etc.
+
+proxy_usage → records usage, success/fail, latency, timestamps
+
+Initialized automatically via:
+
+sql/init.sql (schema creation)
+
+sql/seed.sql (initial data)
+
+Access DB manually:
+
+bash
+Copy code
+docker exec -it myproxy-db-1 psql -U postgres myproxy
+⚡ Redis (Cache / Queue)
+Used for:
+
+Caching proxy data for fast access
+
+Tracking usage or sticky sessions
+
+Background task queues (planned for health checks)
+
+🧠 Development Commands
+Task	Command
+Start all services	docker compose up --build
+View live logs	docker compose logs -f app
+Stop containers	docker compose down
+Restart Node.js only	docker compose restart app
+Check running containers	docker ps
+Open Postgres shell	docker exec -it myproxy-db-1 psql -U postgres myproxy
+
+🧰 Folder Structure
+bash
+Copy code
+myproxy/
+ ├─ src/
+ │   ├─ api/              # Express routes (proxies, health)
+ │   ├─ db/               # Database connection files
+ │   ├─ utils/            # Configs, logger, helper functions
+ │   └─ server.js         # App entry point
+ ├─ sql/                  # init.sql & seed.sql (DB setup)
+ ├─ docker-compose.yml    # Multi-service setup
+ ├─ package.json          # Node.js metadata & dependencies
+ ├─ .env.example          # Example environment config
+ └─ NOTES.md              # This file
+🧭 Docker Service Overview
+Service	Image	Role
+app	node:20-alpine	Runs the Proxy Manager API
+db	postgres:16	Stores proxy and usage data
+redis	redis:7	Caching and future job processing
+
+📦 Version Control Notes
+bash
+Copy code
+git add .
+git commit -m "update notes and docs"
+git push
+🧩 Todo / Roadmap
+ Add nodemon for hot-reload during development
+
+ Add /v1/proxies/release endpoint (report success/failure)
+
+ Implement proxy rotation strategy (round-robin / least-used / sticky)
+
+ Build health-check worker (periodic proxy status validation)
+
+ Add proxy scoring system based on success rate
+
+ Create admin dashboard for internal management
+
+ Add monitoring & metrics endpoint (/v1/metrics)
+
+ Integrate API key system for customers
+
+ Implement rate limiting & usage tracking via Redis
+
+ Set up GitHub Actions for CI/CD
+
+🧠 Knowledge Notes
+WSL2 runs a full Linux kernel → Docker Desktop uses this for containers.
+
+Docker Compose links all services internally via DNS (db, redis, app).
+
+Postgres auto-initializes schema and seeds via mounted .sql files.
+
+Node.js connects to Postgres & Redis using internal hostnames.
+
+API is exposed on localhost:3000 on your Windows host.
+
+🧩 Tip: Keep updating this file as the project evolves — treat it like your internal documentation.
+Add commands, fixes, or architecture changes as you go.
+
+Author: Ajay Malik
+Project: MyProxy
+Created: November 2025
+</file>
+
+<file path="smart-proxy-manager-mixed.md">
+This file is a merged representation of a subset of the codebase, containing files not matching ignore patterns, combined into a single document by Repomix.
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of a subset of the repository's contents that is considered the most important context.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+5. Multiple file entries, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Files matching these patterns are excluded: node_modules/**
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Files are sorted by Git change count (files with more changes are at the bottom)
+</notes>
+
+</file_summary>
+
+<directory_structure>
+proxy_lists/
+  dataimpulse.txt:Zone.Identifier
+sql/
+  init_v2.sql
+  init.sql
+  seed.sql
+src/
+  ai/
+    groqBrain.js
+    prompts.js
+  api/
+    routes/
+      health.js
+      index.js
+      proxies.js
+  db/
+    postgres.js
+    redis.js
+  tools/
+    importProxies.js
+  utils/
+    config.js
+    logger.js
+    trainingLogger.js
+  server.js
+.env.example
+.gitignore
+docker-compose.yml
+NOTES.md
+package.json
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path="sql/init_v2.sql">
+-- sql/init_v2.sql
+-- Clean, enterprise-ready schema for AI-powered proxy manager
+
+DROP TABLE IF EXISTS proxy_usage_logs CASCADE;
+DROP TABLE IF EXISTS provider_performance CASCADE;
+DROP TABLE IF EXISTS routing_rules CASCADE;
+DROP TABLE IF EXISTS proxies CASCADE;
+
+CREATE TABLE proxies (
+  id SERIAL PRIMARY KEY,
+  proxy_string TEXT NOT NULL,           -- e.g., http://user:pass@ip:port
+  ip TEXT NOT NULL,
+  port INT NOT NULL,
+  username TEXT,
+  password TEXT,
+  protocol TEXT DEFAULT 'http',
+  provider TEXT NOT NULL,               -- oxylabs, brightdata, webshare, etc.
+  proxy_type TEXT NOT NULL,             -- datacenter, residential, mobile, isp, rotating, static
+  country TEXT,
+  city TEXT,
+  asn TEXT,
+  score DECIMAL DEFAULT 100.0,
+  healthy BOOLEAN DEFAULT true,
+  consecutive_fails INT DEFAULT 0,
+  success_count INT DEFAULT 0,
+  fail_count INT DEFAULT 0,
+  avg_latency_ms INT DEFAULT 0,
+  last_used TIMESTAMP,
+  last_success TIMESTAMP,
+  last_fail TIMESTAMP,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+  UNIQUE(ip, port, provider)
+);
+
+CREATE TABLE proxy_usage_logs (
+  id SERIAL PRIMARY KEY,
+  proxy_id INT REFERENCES proxies(id) ON DELETE SET NULL,
+  target_domain TEXT NOT NULL,
+  target_url TEXT,
+  script_id TEXT,
+  geo_required TEXT,
+  status TEXT NOT NULL CHECK (status IN ('success', 'blocked', 'timeout', 'captcha', 'slow', 'error')),
+  latency_ms INT,
+  http_status INT,
+  notes TEXT,
+  training_json JSONB,                  -- Full training-ready example
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE provider_performance (
+  id SERIAL PRIMARY KEY,
+  provider TEXT NOT NULL,
+  proxy_type TEXT NOT NULL,
+  target_domain TEXT,
+  success_rate DECIMAL DEFAULT 1.0,
+  avg_latency_ms INT,
+  block_rate DECIMAL DEFAULT 0.0,
+  total_requests INT DEFAULT 0,
+  last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(provider, proxy_type, target_domain)
+);
+
+CREATE TABLE routing_rules (
+  id SERIAL PRIMARY KEY,
+  name TEXT NOT NULL,
+  target_pattern TEXT,                  -- e.g., "%.amazon.com"
+  script_id TEXT,
+  geo_required TEXT,
+  preferred_provider TEXT,
+  preferred_type TEXT,
+  forbidden_provider TEXT,
+  forbidden_type TEXT,
+  priority INT DEFAULT 1,
+  active BOOLEAN DEFAULT true,
+  reason TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Indexes for speed
+CREATE INDEX idx_proxies_healthy_score ON proxies(healthy, score DESC);
+CREATE INDEX idx_logs_target ON proxy_usage_logs(target_domain, created_at DESC);
+CREATE INDEX idx_performance_provider ON provider_performance(provider, proxy_type);
+CREATE INDEX idx_rules_target ON routing_rules(target_pattern);
+</file>
+
+<file path="src/ai/groqBrain.js">
+import OpenAI from "openai";
+import { config } from "../utils/config.js";
+import { pg } from "../db/postgres.js";
+import { redis } from "../db/redis.js";
+import { PROXY_ROUTING_PROMPT } from "./prompts.js";
+
+const groq = new OpenAI({
+  apiKey: config.groqApiKey,
+  baseURL: "https://api.groq.com/openai/v1"
+});
+
+async function getStatsSummary() {
+  const { rows } = await pg.query(`
+    SELECT provider, proxy_type, 
+           success_rate, avg_latency_ms, block_rate
+    FROM provider_performance 
+    WHERE total_requests > 10
+    ORDER BY success_rate DESC
+    LIMIT 20
+  `);
+  if (rows.length === 0) return "No performance data yet — prefer residential providers.";
+  return rows.map(r => 
+    `- ${r.provider} ${r.proxy_type}: ${ (r.success_rate*100).toFixed(1) }% success, ${r.avg_latency_ms}ms avg, ${ (r.block_rate*100).toFixed(1) }% blocks`
+  ).join("\n");
+}
+
+async function getActiveRules(targetDomain) {
+  const { rows } = await pg.query(`
+    SELECT preferred_provider, preferred_type, reason
+    FROM routing_rules 
+    WHERE active = true 
+      AND $1 ILIKE target_pattern
+    ORDER BY priority DESC
+  `, [targetDomain]);
+  return rows.length > 0 ? rows.map(r => `${r.preferred_provider || 'any'} ${r.preferred_type || ''} (${r.reason || 'manual'})`).join(", ") : "None";
+}
+
+export async function getBestProxyRecommendation({ targetUrl, geo, script }) {
+  const domain = new URL(targetUrl).hostname;
+
+  // Cache key
+  const cacheKey = `proxy:decision:${domain}:${geo || 'any'}:${script || 'default'}`;
+  const cached = await redis.get(cacheKey);
+  if (cached) return JSON.parse(cached);
+
+  const stats = await getStatsSummary();
+  const rules = await getActiveRules(`%${domain}%`);
+
+  const prompt = PROXY_ROUTING_PROMPT
+    .replace("{{STATS_SUMMARY}}", stats)
+    .replace("{{TARGET_DOMAIN}}", domain)
+    .replace("{{TARGET_URL}}", targetUrl)
+    .replace("{{GEO}}", geo || "any")
+    .replace("{{SCRIPT}}", script || "unknown")
+    .replace("{{RULES}}", rules);
+
+  try {
+    const response = await groq.chat.completions.create({
+      model: "llama3-8b-8192", // Fast & cheap
+      messages: [{ role: "user", content: prompt }],
+      response_format: { type: "json_object" },
+      temperature: 0.3
+    });
+
+    const decision = JSON.parse(response.choices[0].message.content);
+
+    // Cache for 5 minutes
+    await redis.set(cacheKey, JSON.stringify(decision), "EX", 300);
+
+    return decision;
+  } catch (err) {
+    // Fallback: simple score-based
+    return { recommended_provider: null, recommended_type: "residential", reason: "Groq error — fallback to residential" };
+  }
+}
+</file>
+
+<file path="src/ai/prompts.js">
+export const PROXY_ROUTING_PROMPT = `
+You are an elite proxy routing AI for large-scale web scraping.
+
+Guidelines:
+- Prioritize success rate > latency > cost
+- Use residential/mobile/ISP for anti-bot sites (e-commerce, social, search engines)
+- Use datacenter only for easy targets
+- Respect manual rules if any
+- Avoid providers with high block_rate or recent fails
+
+Current performance summary:
+{{STATS_SUMMARY}}
+
+Target domain: {{TARGET_DOMAIN}}
+Full URL: {{TARGET_URL}}
+Required geo: {{GEO}}
+Script: {{SCRIPT}}
+
+Manual rules active: {{RULES}}
+
+Return ONLY valid JSON:
+{
+  "recommended_provider": "string",
+  "recommended_type": "residential|datacenter|mobile|isp|rotating|static",
+  "reason": "short explanation"
+}
+`.trim();
+</file>
+
+<file path="src/utils/trainingLogger.js">
+// src/utils/trainingLogger.js
+import { pg } from "../db/postgres.js";
+import { logger } from "./logger.js";
+
+export async function logTrainingExample(example) {
+  try {
+    // Insert into usage logs with training_json
+    await pg.query(`
+      INSERT INTO proxy_usage_logs (
+        proxy_id, target_domain, target_url, script_id, geo_required,
+        status, latency_ms, http_status, notes, training_json, created_at
+      ) VALUES (
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW()
+      )
+    `, [
+      example.proxy_id || null,
+      example.target_domain,
+      example.target_url || null,
+      example.script_id || null,
+      example.geo_required || null,
+      example.status,
+      example.latency_ms || null,
+      example.http_status || null,
+      example.notes || null,
+      example.training_json
+    ]);
+
+    logger.info(`[TRAINING] Logged example: ${example.status} on ${example.target_domain}`);
+  } catch (err) {
+    logger.error("Failed to log training example:", err);
+  }
+}
+</file>
+
+<file path="sql/seed.sql">
+INSERT INTO proxies (ip, port, username, password, protocol, provider, region, type, score, healthy) VALUES
+('p.webshare.io',80,'omgfwsyp-1','1iin2otw4dk9','http','webshare','global','internal',100,true),
+('p.webshare.io',80,'omgfwsyp-2','1iin2otw4dk9','http','webshare','global','internal',100,true),
+('p.webshare.io',80,'omgfwsyp-3','1iin2otw4dk9','http','webshare','global','internal',100,true),
+('p.webshare.io',80,'omgfwsyp-4','1iin2otw4dk9','http','webshare','global','internal',100,true),
+('p.webshare.io',80,'omgfwsyp-5','1iin2otw4dk9','http','webshare','global','internal',100,true),
+('p.webshare.io',80,'omgfwsyp-6','1iin2otw4dk9','http','webshare','global','internal',100,true),
+('p.webshare.io',80,'omgfwsyp-7','1iin2otw4dk9','http','webshare','global','internal',100,true),
+('p.webshare.io',80,'omgfwsyp-8','1iin2otw4dk9','http','webshare','global','internal',100,true),
+('p.webshare.io',80,'omgfwsyp-9','1iin2otw4dk9','http','webshare','global','internal',100,true),
+('p.webshare.io',80,'omgfwsyp-10','1iin2otw4dk9','http','webshare','global','internal',100,true);
+</file>
+
+<file path="src/api/routes/health.js">
+import { Router } from "express";
+const router = Router();
+router.get("/health",(req,res)=>res.send({status:"ok",uptime:process.uptime(),ts:new Date()}));
+export default router;
+</file>
+
+<file path="src/api/routes/index.js">
+import { Router } from "express";
+import healthRouter from "./health.js";
+import proxyRouter from "./proxies.js";
+const router = Router();
+router.use("/", healthRouter);     // → /health
+router.use("/v1", proxyRouter);    // → /v1/proxy, /v1/proxies/random, /v1/proxy/report
+export default router;
+</file>
+
+<file path="src/api/routes/proxies.js">
+// src/api/routes/proxies.js
+import { Router } from "express";
+import { pg } from "../../db/postgres.js";
+import { redis } from "../../db/redis.js";
+import { getBestProxyRecommendation } from "../../ai/groqBrain.js";
+import { logTrainingExample } from "../../utils/trainingLogger.js";
+import { logger } from "../../utils/logger.js";
+
+const router = Router();
+
+// Add this line near the top with other routes
+router.get("/proxies/random", async (req, res) => {  // ← Fixed path
+  const { rows } = await pg.query(`
+    SELECT * FROM proxies 
+    WHERE healthy = true 
+    ORDER BY RANDOM() 
+    LIMIT 1
+  `);
+  if (!rows.length) return res.status(404).json({ error: "No healthy proxies" });
+
+  const p = rows[0];
+  res.json({
+    proxy: p.proxy_string,
+    id: p.id,
+    provider: p.provider,
+    type: p.proxy_type
+  });
+});
+// NEW MAIN ENDPOINT — AI-POWERED
+router.get("/proxy", async (req, res) => {
+  const { target, geo, script } = req.query;
+
+  if (!target) {
+    return res.status(400).json({ error: "Missing required param: target (URL)" });
+  }
+
+  try {
+    // Get AI recommendation
+    const recommendation = await getBestProxyRecommendation({
+      targetUrl: target,
+      geo: geo || null,
+      script: script || null
+    });
+
+    // Build DB query
+    let query = "SELECT * FROM proxies WHERE healthy = true";
+    const values = [];
+
+    if (recommendation.recommended_provider) {
+      query += ` AND provider = $${values.length + 1}`;
+      values.push(recommendation.recommended_provider);
+    }
+
+    if (recommendation.recommended_type) {
+      query += ` AND proxy_type = $${values.length + 1}`;
+      values.push(recommendation.recommended_type);
+    }
+
+    if (geo) {
+      query += ` AND (country = $${values.length + 1} OR country IS NULL)`;
+      values.push(geo.toUpperCase());
+    }
+
+    query += " ORDER BY score DESC, RANDOM() LIMIT 1";
+
+    const { rows } = await pg.query(query, values);
+    if (!rows.length) {
+      return res.status(404).json({ error: "No matching proxy found", fallback: true });
+    }
+
+    const proxy = rows[0];
+
+    // Update last_used
+    await pg.query("UPDATE proxies SET last_used = NOW() WHERE id = $1", [proxy.id]);
+
+    res.json({
+      proxy: proxy.proxy_string,
+      id: proxy.id,
+      provider: proxy.provider,
+      type: proxy.proxy_type,
+      country: proxy.country,
+      recommendation: recommendation
+    });
+  } catch (err) {
+    logger.error("Proxy selection error:", err);
+    res.status(500).json({ error: "Internal error" });
+  }
+});
+
+// REPORT ENDPOINT — This feeds the learning!
+router.post("/proxy/report", async (req, res) => {
+  const {
+    proxy_id,
+    status,           // success, blocked, timeout, captcha, slow
+    latency_ms,
+    http_status,
+    notes
+  } = req.body;
+
+  if (!proxy_id || !status) {
+    return res.status(400).json({ error: "Missing proxy_id or status" });
+  }
+
+  try {
+    const { rows } = await pg.query("SELECT * FROM proxies WHERE id = $1", [proxy_id]);
+    if (!rows.length) return res.status(404).json({ error: "Proxy not found" });
+
+    const proxy = rows[0];
+
+    // Build training example
+    const trainingExample = {
+      timestamp: new Date().toISOString(),
+      event_type: "proxy_outcome",
+      input: {
+        target_domain: req.body.target_domain || "unknown",
+        geo_required: proxy.country || "any",
+        provider: proxy.provider,
+        proxy_type: proxy.proxy_type,
+        recommendation_reason: req.body.recommendation_reason || "unknown"
+      },
+      decision: {
+        provider: proxy.provider,
+        type: proxy.proxy_type
+      },
+      outcome: {
+        status,
+        latency_ms,
+        http_status,
+        blocked: status === "blocked" || status === "captcha"
+      },
+      proxy_id: proxy.id
+    };
+
+    // Log to DB
+    await logTrainingExample({
+      proxy_id,
+      target_domain: req.body.target_domain || "unknown",
+      status,
+      latency_ms,
+      http_status,
+      notes,
+      training_json: trainingExample
+    });
+
+    // Update proxy stats
+    const isSuccess = status === "success";
+    const newScore = isSuccess ? Math.min(100, proxy.score + 2) : Math.max(0, proxy.score - 10);
+    const newFails = isSuccess ? 0 : proxy.consecutive_fails + 1;
+    const healthy = newFails < 5;
+
+    await pg.query(`
+      UPDATE proxies SET
+        score = $1,
+        healthy = $2,
+        consecutive_fails = $3,
+        success_count = success_count + $4,
+        fail_count = fail_count + $5,
+        avg_latency_ms = LEAST(COALESCE((avg_latency_ms * (success_count + fail_count) + $6) / (success_count + fail_count + 1), $6), 10000),
+        last_success = CASE WHEN $4 = 1 THEN NOW() ELSE last_success END,
+        last_fail = CASE WHEN $5 = 1 THEN NOW() ELSE last_fail END
+      WHERE id = $7
+    `, [
+      newScore, healthy, newFails,
+      isSuccess ? 1 : 0,
+      isSuccess ? 0 : 1,
+      latency_ms || 0,
+      proxy_id
+    ]);
+
+    // Invalidate cache
+    await redis.del(`proxy:decision:*`);
+
+    res.json({ success: true, message: "Report recorded — AI brain learning..." });
+  } catch (err) {
+    logger.error("Report error:", err);
+    res.status(500).json({ error: "Failed to record report" });
+  }
+});
+
+export default router;
+</file>
+
+<file path="src/db/postgres.js">
+import pkg from "pg";
+import { config } from "../utils/config.js";
+import { logger } from "../utils/logger.js";
+const { Pool } = pkg;
+export const pg = new Pool({ connectionString: config.postgresUrl });
+pg.connect().then(()=>logger.info("Connected to Postgres")).catch(e=>logger.error("Postgres error:",e));
+</file>
+
+<file path="src/db/redis.js">
+// src/db/redis.js
+import Redis from "ioredis";
+import { config } from "../utils/config.js";
+import { logger } from "../utils/logger.js";
+
+export const redis = new Redis(config.redisUrl);
+
+redis.on("connect", () => logger.info("Connected to Redis"));
+redis.on("error", (e) => logger.error("Redis error:", e));
+</file>
+
+<file path="src/utils/logger.js">
+export const logger = {
+  info: (...a)=>console.log("[INFO]",...a),
+  error: (...a)=>console.error("[ERROR]",...a),
+  warn: (...a)=>console.warn("[WARN]",...a)
+};
+</file>
+
+<file path="src/server.js">
+import express from "express";
+import api from "./api/routes/index.js";
+import { config } from "./utils/config.js";
+import { logger } from "./utils/logger.js";
+const app = express();
+app.use(express.json());
+app.use("/", api);
+app.listen(config.port, () => logger.info(`Proxy Manager API running on port ${config.port}`));
+</file>
+
+<file path=".gitignore">
+# Ignore proxy lists (they may contain credentials)
+proxy_lists/*.txt
+
+# Node.js dependencies
+node_modules/
+
+# Environment files
+.env
+.env.local
+.env.development
+.env.production
+
+# Docker-related
+postgres_data/
+redis_data/
+*.log
+
+# OS/system files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+
+# Build outputs (if we later add build step)
+dist/
+build/
+</file>
+
+<file path="NOTES.md">
+# 🗒️ Project Notes — MyProxy
+
+**Purpose:**  
+A scalable Proxy Manager service designed for internal use and customer distribution.  
+Built with **Node.js + Express**, **PostgreSQL**, and **Redis**, running under **Docker** inside **WSL2**.
+
+---
+
+## ⚙️ Current Stack Overview
+
+| Component | Description |
+|------------|-------------|
+| **Node.js (App)** | REST API handling proxy allocation, release, and health endpoints |
+| **PostgreSQL** | Stores proxy data, usage logs, and health stats |
+| **Redis** | Used for caching, sessions, and job queues (future use) |
+| **Docker Compose** | Manages all services and container networking |
+| **WSL2 (Ubuntu)** | Linux environment for development on Windows |
+| **GitHub Repo** | Version control and CI/CD integration |
+
+---
+
+## 🚀 How to Run
+
+```bash
+docker compose up --build
+Check if the API is live:
+
+bash
+Copy code
+curl http://localhost:3000/health
+Expected output:
+
+json
+Copy code
+{"status":"ok","uptime":12.34,"ts":"2025-11-03T10:36:04.216Z"}
+🧩 Current Routes
+Endpoint	Method	Description
+/health	GET	Check server uptime and API availability
+/v1/proxies/random	GET	Return one random healthy proxy from the database
+
+🐘 Database (PostgreSQL)
+Database Name: myproxy
+
+Tables:
+
+proxies → stores proxy IPs, credentials, type (http/socks5), provider, etc.
+
+proxy_usage → records usage, success/fail, latency, timestamps
+
+Initialized automatically via:
+
+sql/init.sql (schema creation)
+
+sql/seed.sql (initial data)
+
+Access DB manually:
+
+bash
+Copy code
+docker exec -it myproxy-db-1 psql -U postgres myproxy
+⚡ Redis (Cache / Queue)
+Used for:
+
+Caching proxy data for fast access
+
+Tracking usage or sticky sessions
+
+Background task queues (planned for health checks)
+
+🧠 Development Commands
+Task	Command
+Start all services	docker compose up --build
+View live logs	docker compose logs -f app
+Stop containers	docker compose down
+Restart Node.js only	docker compose restart app
+Check running containers	docker ps
+Open Postgres shell	docker exec -it myproxy-db-1 psql -U postgres myproxy
+
+🧰 Folder Structure
+bash
+Copy code
+myproxy/
+ ├─ src/
+ │   ├─ api/              # Express routes (proxies, health)
+ │   ├─ db/               # Database connection files
+ │   ├─ utils/            # Configs, logger, helper functions
+ │   └─ server.js         # App entry point
+ ├─ sql/                  # init.sql & seed.sql (DB setup)
+ ├─ docker-compose.yml    # Multi-service setup
+ ├─ package.json          # Node.js metadata & dependencies
+ ├─ .env.example          # Example environment config
+ └─ NOTES.md              # This file
+🧭 Docker Service Overview
+Service	Image	Role
+app	node:20-alpine	Runs the Proxy Manager API
+db	postgres:16	Stores proxy and usage data
+redis	redis:7	Caching and future job processing
+
+📦 Version Control Notes
+bash
+Copy code
+git add .
+git commit -m "update notes and docs"
+git push
+🧩 Todo / Roadmap
+ Add nodemon for hot-reload during development
+
+ Add /v1/proxies/release endpoint (report success/failure)
+
+ Implement proxy rotation strategy (round-robin / least-used / sticky)
+
+ Build health-check worker (periodic proxy status validation)
+
+ Add proxy scoring system based on success rate
+
+ Create admin dashboard for internal management
+
+ Add monitoring & metrics endpoint (/v1/metrics)
+
+ Integrate API key system for customers
+
+ Implement rate limiting & usage tracking via Redis
+
+ Set up GitHub Actions for CI/CD
+
+🧠 Knowledge Notes
+WSL2 runs a full Linux kernel → Docker Desktop uses this for containers.
+
+Docker Compose links all services internally via DNS (db, redis, app).
+
+Postgres auto-initializes schema and seeds via mounted .sql files.
+
+Node.js connects to Postgres & Redis using internal hostnames.
+
+API is exposed on localhost:3000 on your Windows host.
+
+🧩 Tip: Keep updating this file as the project evolves — treat it like your internal documentation.
+Add commands, fixes, or architecture changes as you go.
+
+Author: Ajay Malik
+Project: MyProxy
+Created: November 2025
+</file>
+
+<file path="package.json">
+{
+  "name": "myproxy",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js"
+  },
+  "dependencies": {
+    "@redis/client": "^5.10.0",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "ioredis": "^5.3.2",
+    "openai": "^6.10.0",
+    "pg": "^8.11.1"
+  }
+}
+</file>
+
+<file path="src/tools/importProxies.js">
+// src/tools/importProxies.js
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
+import { pg } from "../db/postgres.js";
+import { logger } from "../utils/logger.js";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const proxyDir = path.join(__dirname, "../../proxy_lists");
+
+function parseProxyLine(line) {
+  line = line.trim();
+  if (!line || line.startsWith("#")) return null;
+
+  line = line.replace(/^(http|https|socks5|socks):\/\//i, "");
+
+  let username, password, ip, port;
+
+  if (line.includes("@")) {
+    const [auth, host] = line.split("@");
+    [username, password] = auth.split(":");
+    [ip, port] = host.split(":");
+  } else if (line.split(":").length >= 4) {
+    [ip, port, username, password] = line.split(":");
+  } else if (line.split(":").length === 2) {
+    [ip, port] = line.split(":");
+  }
+
+  if (!ip || !port) return null;
+
+  return { ip: ip.trim(), port: parseInt(port.trim(), 10), username: username?.trim(), password: password?.trim() };
+}
+
+async function importProxies() {
+  const files = fs.readdirSync(proxyDir).filter(f => f.endsWith(".txt"));
+  if (!files.length) {
+    logger.warn("No proxy lists found in proxy_lists/");
+    return;
+  }
+
+  for (const file of files) {
+    let provider = "unknown";
+    let proxy_type = "datacenter";  // default
+    let country = null;
+    let protocol = "http";
+
+    const name = file.replace(".txt", "");
+    const parts = name.split("_");
+
+    provider = parts[0];
+
+    if (parts.length >= 2) {
+      if (parts[1].length === 2) country = parts[1].toUpperCase();
+      else proxy_type = parts[1];
+    }
+    if (parts.length >= 3) {
+      if (parts[2].length === 2 && country === null) country = parts[2].toUpperCase();
+      else if (parts[2] !== country) protocol = parts[2];
+    }
+    if (parts.length >= 4) {
+      proxy_type = parts[2];
+      protocol = parts[3];
+    }
+
+    logger.info(`Importing ${file} → provider=${provider}, type=${proxy_type}, country=${country || 'global'}, protocol=${protocol}`);
+
+    const content = fs.readFileSync(path.join(proxyDir, file), "utf8");
+    const lines = content.split(/\r?\n/).filter(Boolean);
+
+    let inserted = 0;
+    for (const line of lines) {
+      const p = parseProxyLine(line);
+      if (!p) continue;
+
+      const proxy_string = p.username 
+        ? `${protocol}://${p.username}:${p.password}@${p.ip}:${p.port}`
+        : `${protocol}://${p.ip}:${p.port}`;
+
+      try {
+        await pg.query(`
+          INSERT INTO proxies (
+            proxy_string, ip, port, username, password, protocol,
+            provider, proxy_type, country, score, healthy
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 100, true)
+          ON CONFLICT (ip, port, provider) DO NOTHING
+        `, [
+          proxy_string, p.ip, p.port, p.username, p.password, protocol,
+          provider, proxy_type, country
+        ]);
+        inserted++;
+      } catch (err) {
+        logger.warn(`Failed to insert ${line}: ${err.message}`);
+      }
+    }
+    logger.info(`Inserted ${inserted}/${lines.length} from ${file}`);
+  }
+
+  logger.info("All proxy imports complete!");
+  await pg.end();
+}
+
+importProxies().catch(err => logger.error("Import failed:", err));
+</file>
+
+<file path="sql/init.sql">
+CREATE TABLE IF NOT EXISTS proxies (
+  id SERIAL PRIMARY KEY,
+  ip TEXT NOT NULL,
+  port INT NOT NULL,
+  username TEXT,
+  password TEXT,
+  protocol TEXT DEFAULT 'http',
+  provider TEXT,
+  region TEXT DEFAULT 'global',
+  type TEXT DEFAULT 'internal',
+  owner_id TEXT,
+  score INT DEFAULT 100,
+  healthy BOOLEAN DEFAULT true,
+  last_checked TIMESTAMP,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS proxy_usage (
+  id SERIAL PRIMARY KEY,
+  proxy_id INT REFERENCES proxies(id),
+  project TEXT,
+  status TEXT,
+  latency_ms INT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Added November 2025
+ALTER TABLE proxies
+ADD COLUMN IF NOT EXISTS provider_type TEXT DEFAULT 'generic',
+ADD COLUMN IF NOT EXISTS protocol TEXT DEFAULT 'http';
+
+ALTER TABLE proxies
+ADD COLUMN IF NOT EXISTS country TEXT;
+</file>
+
+<file path="docker-compose.yml">
+version: "3.8"
+
+services:
+  app:
+    image: node:20-alpine
+    working_dir: /app
+    volumes:
+      - .:/app
+    command: sh -c "npm install && npm run start"
+    ports:
+      - "3100:3000"   # Expose API on VM port 3100
+    env_file: .env
+    depends_on:
+      - db
+      - redis
+
+  db:
+    ports:
+      - 5433:5432
+    image: postgres:16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: myproxy
+    # docker-compose.yml (only change this part)
+    volumes:
+      - ./sql/init_v2.sql:/docker-entrypoint-initdb.d/1-schema.sql
+      # Remove old seed for now — we'll import manually later
+      # No host port exposure to avoid conflicts
+
+  redis:
+    image: redis:7
+    # No host port exposure to avoid conflicts
+</file>
+
+</files>
+</file>
+
+<file path="src/api/routes/index.js">
+import { Router } from "express";
+import healthRouter from "./health.js";
+import proxyRouter from "./proxies.js";
+const router = Router();
+router.use("/", healthRouter);     // → /health
+router.use("/v1", proxyRouter);    // → /v1/proxy, /v1/proxies/random, /v1/proxy/report
+export default router;
+</file>
+
+<file path="src/db/redis.js">
+// src/db/redis.js
+import Redis from "ioredis";
+import { config } from "../utils/config.js";
+import { logger } from "../utils/logger.js";
+
+export const redis = new Redis(config.redisUrl);
+
+redis.on("connect", () => logger.info("Connected to Redis"));
+redis.on("error", (e) => logger.error("Redis error:", e));
+</file>
+
+<file path="package.json">
+{
+  "name": "myproxy",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js"
+  },
+  "dependencies": {
+    "@redis/client": "^5.10.0",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "ioredis": "^5.3.2",
+    "openai": "^6.10.0",
+    "pg": "^8.11.1"
+  }
+}
+</file>
+
+<file path="sql/init.sql">
+CREATE TABLE IF NOT EXISTS proxies (
+  id SERIAL PRIMARY KEY,
+  ip TEXT NOT NULL,
+  port INT NOT NULL,
+  username TEXT,
+  password TEXT,
+  protocol TEXT DEFAULT 'http',
+  provider TEXT,
+  region TEXT DEFAULT 'global',
+  type TEXT DEFAULT 'internal',
+  owner_id TEXT,
+  score INT DEFAULT 100,
+  healthy BOOLEAN DEFAULT true,
+  last_checked TIMESTAMP,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS proxy_usage (
+  id SERIAL PRIMARY KEY,
+  proxy_id INT REFERENCES proxies(id),
+  project TEXT,
+  status TEXT,
+  latency_ms INT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Added November 2025
+ALTER TABLE proxies
+ADD COLUMN IF NOT EXISTS provider_type TEXT DEFAULT 'generic',
+ADD COLUMN IF NOT EXISTS protocol TEXT DEFAULT 'http';
+
+ALTER TABLE proxies
+ADD COLUMN IF NOT EXISTS country TEXT;
+</file>
+
+<file path="src/api/routes/proxies.js">
+// src/api/routes/proxies.js
+import crypto from "crypto";
+import { Router } from "express";
+import { pg } from "../../db/postgres.js";
+import { redis } from "../../db/redis.js";
+import { logger } from "../../utils/logger.js";
+import { config } from "../../utils/config.js";
+
+const router = Router();
+
+const VALID_TYPES = ["residential", "datacenter", "mobile", "isp"];
+const VALID_PROTOCOLS = ["http", "https", "socks4", "socks5"];
+const VALID_ANONYMITY = ["elite", "anonymous", "transparent"];
+const VALID_STRATEGIES = ["random", "least_used"];
+const VALID_STATUSES = ["success", "blocked", "timeout", "captcha", "slow", "error"];
+
+// ----------------------------------------------------------------------
+// GET /v1/proxy
+// Fetch a single healthy proxy matching the given criteria.
+//
+// Query params:
+//   proxy      – proxy type shorthand (residential|datacenter|mobile|isp)
+//   type       – same as proxy (either param works)
+//   country    – ISO country code (US, DE …)
+//   protocol   – http|https|socks4|socks5
+//   anonymity  – elite|anonymous|transparent
+//   provider   – specific provider name
+//   strategy   – random (default) | least_used
+//   sticky     – true: return a sticky-session proxy row (must exist in DB)
+//   ttl        – sticky session duration in minutes (1–1440); overrides
+//                the proxy row's metadata.sessttl default
+// ----------------------------------------------------------------------
+router.get("/proxy", async (req, res) => {
+  const {
+    country,
+    type,
+    proxy,           // alias for "type"
+    protocol,
+    anonymity,
+    provider,
+    strategy = "random",
+  } = req.query;
+
+  // "proxy" param is an alias for "type" (either works)
+  const proxyType = (type || proxy || "").toLowerCase() || undefined;
+
+  // ── Input validation ──────────────────────────────────────────────────
+  if (proxyType && !VALID_TYPES.includes(proxyType)) {
+    return res.status(400).json({
+      error: `Invalid type/proxy value. Allowed: ${VALID_TYPES.join(", ")}`,
+    });
+  }
+  if (protocol && !VALID_PROTOCOLS.includes(protocol.toLowerCase())) {
+    return res.status(400).json({
+      error: `Invalid protocol. Allowed: ${VALID_PROTOCOLS.join(", ")}`,
+    });
+  }
+  if (anonymity && !VALID_ANONYMITY.includes(anonymity.toLowerCase())) {
+    return res.status(400).json({
+      error: `Invalid anonymity. Allowed: ${VALID_ANONYMITY.join(", ")}`,
+    });
+  }
+  if (!VALID_STRATEGIES.includes(strategy)) {
+    return res.status(400).json({
+      error: `Invalid strategy. Allowed: ${VALID_STRATEGIES.join(", ")}`,
+    });
+  }
+
+  const sticky = req.query.sticky === "true";
+
+  // ?ttl= (minutes) — only relevant for sticky sessions, range 1–1440
+  let ttlMinutes = null;
+  if (req.query.ttl !== undefined) {
+    ttlMinutes = parseInt(req.query.ttl, 10);
+    if (isNaN(ttlMinutes) || ttlMinutes < 1 || ttlMinutes > 1440) {
+      return res.status(400).json({
+        error: "Invalid ttl. Must be an integer between 1 and 1440 (minutes).",
+      });
+    }
+  }
+
+  try {
+    // ── Build query ───────────────────────────────────────────────────
+    let query = `SELECT * FROM proxies WHERE healthy = true`;
+    const values = [];
+    let idx = 1;
+
+    // Always filter by session_type so rotating and sticky rows never mix
+    query += ` AND session_type = $${idx++}`;
+    values.push(sticky ? "sticky" : "rotating");
+
+    if (country) { query += ` AND country = $${idx++}`; values.push(country.toUpperCase()); }
+    if (proxyType) { query += ` AND proxy_type = $${idx++}`; values.push(proxyType); }
+    if (protocol) { query += ` AND protocol = $${idx++}`; values.push(protocol.toLowerCase()); }
+    if (anonymity) { query += ` AND anonymity = $${idx++}`; values.push(anonymity.toLowerCase()); }
+    if (provider) { query += ` AND provider = $${idx++}`; values.push(provider.toLowerCase()); }
+
+    if (strategy === "least_used") {
+      query += ` ORDER BY last_used ASC NULLS FIRST`;
+    } else {
+      query += ` ORDER BY score DESC, RANDOM()`;
+    }
+
+    query += ` LIMIT 1`;
+
+    // ── Execute ───────────────────────────────────────────────────────
+    const { rows } = await pg.query(query, values);
+
+    if (!rows.length) {
+      return res.status(404).json({
+        error: "No matching proxy found",
+        criteria: { country, type: proxyType, protocol, anonymity, provider },
+      });
+    }
+
+    const p = rows[0];
+
+    // Update last_used asynchronously (supports least_used strategy)
+    pg.query("UPDATE proxies SET last_used = NOW() WHERE id = $1", [p.id])
+      .catch((e) => logger.error("last_used update failed", e));
+
+    // ── Relay mode ────────────────────────────────────────────────────
+    // When RELAY_HOST is configured the real provider URL is never sent
+    // to the client — they get a short-lived token-based URL instead.
+    //
+    // For sticky DataImpulse rows the DB stores the BASE username without
+    // any sessttl suffix.  We inject ";sessttl.{minutes}" at request time
+    // so every API call can carry a different TTL without touching the DB.
+    //
+    // Priority for sessttl: ?ttl= param  >  metadata.sessttl  >  60 min
+
+    // ── Sticky username injection ──────────────────────────────────────
+    // Build the effective username/proxyUrl with sessttl for sticky rows.
+    let effectiveUsername = p.username;
+    let proxyUrl = p.proxy_string;
+    const sessttlMinutes = sticky
+      ? (ttlMinutes ?? (p.metadata?.sessttl ?? 60))
+      : null;
+
+    if (sticky && p.username && !p.username.includes(";sessttl.")) {
+      effectiveUsername = `${p.username};sessttl.${sessttlMinutes}`;
+      proxyUrl = p.proxy_string.replace(
+        `://${p.username}:`,
+        `://${effectiveUsername}:`
+      );
+    }
+
+    // ── Common metadata ───────────────────────────────────────────────
+    const metadata = {
+      id: p.id,
+      country: p.country,
+      type: p.proxy_type,
+      provider: p.provider,
+      session_type: p.session_type,
+      score: parseFloat(p.score),
+      ...(sticky && { sessttl_minutes: sessttlMinutes }),
+    };
+
+    // ── Relay mode ────────────────────────────────────────────────────
+    if (config.relayHost) {
+      const sessionTtl = sticky
+        ? sessttlMinutes * 60 + 60
+        : 86400; // rotating: 24 h
+
+      const token = crypto.randomBytes(24).toString("hex");
+      await redis.setex(
+        `relay:${token}`,
+        sessionTtl,
+        JSON.stringify({ proxy_url: proxyUrl, proxy_id: p.id, sticky })
+      );
+
+      return res.json({
+        proxy_url: `http://${token}:x@${config.relayHost}:${config.relayPort}`,
+        expires_at: new Date(Date.now() + sessionTtl * 1000).toISOString(),
+        connection: {
+          scheme: "http",
+          host: config.relayHost,
+          port: String(config.relayPort),
+          username: token,
+          password: "x",
+        },
+        metadata,
+      });
+    }
+
+    // ── Direct mode (no relay) ────────────────────────────────────────
+    return res.json({
+      proxy_url: proxyUrl,
+      connection: {
+        scheme: p.protocol,
+        host: p.ip,
+        port: String(p.port),
+        username: effectiveUsername || null,
+        password: p.password || null,
+      },
+      metadata,
+    });
+  } catch (err) {
+    logger.error("Proxy fetch error:", err);
+    return res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+// ----------------------------------------------------------------------
+// GET /v1/providers
+// Catalog of available providers, proxy types, and their live stats.
+// ----------------------------------------------------------------------
+router.get("/providers", async (_req, res) => {
+  try {
+    const { rows } = await pg.query(`
+      SELECT
+        provider,
+        proxy_type,
+        protocol,
+        COUNT(*)                                          AS total,
+        COUNT(*) FILTER (WHERE healthy = true)            AS healthy,
+        ROUND(AVG(score)::NUMERIC, 1)                     AS avg_score,
+        ARRAY_AGG(DISTINCT country ORDER BY country)
+          FILTER (WHERE country IS NOT NULL)              AS countries
+      FROM proxies
+      GROUP BY provider, proxy_type, protocol
+      ORDER BY provider, proxy_type, protocol
+    `);
+
+    // Group into { provider → { types → [...] } }
+    const map = {};
+    for (const row of rows) {
+      if (!map[row.provider]) {
+        map[row.provider] = { provider: row.provider, types: [] };
+      }
+      map[row.provider].types.push({
+        proxy_type: row.proxy_type,
+        protocol: row.protocol,
+        total: parseInt(row.total, 10),
+        healthy: parseInt(row.healthy, 10),
+        avg_score: parseFloat(row.avg_score),
+        countries: row.countries || [],
+      });
+    }
+
+    return res.json({ providers: Object.values(map) });
+  } catch (err) {
+    logger.error("Providers catalog error:", err);
+    return res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+// ----------------------------------------------------------------------
+// POST /v1/proxy/report
+// Feedback loop – clients report success/failure so scores stay current.
+//
+// Body:
+//   proxy_id      – preferred; resolved by IP if omitted
+//   proxy_ip      – fallback identifier
+//   status        – success|blocked|timeout|captcha|slow|error
+//   latency_ms    – response time in milliseconds
+//   target_domain – domain that was scraped
+// ----------------------------------------------------------------------
+router.post("/proxy/report", async (req, res) => {
+  const { proxy_ip, status, latency_ms, target_domain } = req.body;
+
+  if (!status) {
+    return res.status(400).json({ error: "Missing required field: status" });
+  }
+  if (!VALID_STATUSES.includes(status)) {
+    return res.status(400).json({
+      error: `Invalid status. Allowed: ${VALID_STATUSES.join(", ")}`,
+    });
+  }
+
+  try {
+    // ── Resolve proxy ─────────────────────────────────────────────────
+    let proxyId = req.body.proxy_id;
+    if (!proxyId && proxy_ip) {
+      const { rows } = await pg.query(
+        "SELECT id FROM proxies WHERE ip = $1 LIMIT 1",
+        [proxy_ip]
+      );
+      if (rows.length) proxyId = rows[0].id;
+    }
+    if (!proxyId) {
+      return res.status(404).json({ error: "Proxy not found" });
+    }
+
+    // ── Score delta ───────────────────────────────────────────────────
+    const isSuccess = status === "success";
+    let scoreDelta = 0;
+    if (isSuccess) scoreDelta = 1;
+    else if (status === "blocked" || status === "captcha") scoreDelta = -5;
+    else scoreDelta = -2; // timeout, error, slow
+
+    // ── Update proxy stats ────────────────────────────────────────────
+    // NOTE: In PostgreSQL all SET expressions see the original row values,
+    // so "consecutive_fails + 1" always refers to the pre-update count.
+    // The healthy flag logic accounts for this correctly:
+    //   - On failure: mark unhealthy when (old_fails + 1) >= 10
+    //   - On success: restore to healthy and reset the streak counter
+    await pg.query(
+      `
+      UPDATE proxies SET
+        score            = GREATEST(0, LEAST(100, score + $1)),
+        success_count    = success_count + $2,
+        fail_count       = fail_count    + $3,
+        consecutive_fails = CASE WHEN $4 THEN 0 ELSE consecutive_fails + 1 END,
+        healthy          = CASE
+                             WHEN $4                          THEN true
+                             WHEN consecutive_fails + 1 >= 10 THEN false
+                             ELSE healthy
+                           END,
+        last_success     = CASE WHEN $4     THEN NOW() ELSE last_success END,
+        last_fail        = CASE WHEN NOT $4 THEN NOW() ELSE last_fail    END,
+        avg_latency_ms   = CASE
+                             WHEN $5 > 0
+                             THEN (avg_latency_ms * 9 + $5) / 10
+                             ELSE avg_latency_ms
+                           END
+      WHERE id = $6
+      `,
+      [scoreDelta, isSuccess ? 1 : 0, isSuccess ? 0 : 1, isSuccess, latency_ms || 0, proxyId]
+    );
+
+    // ── Insert usage log ──────────────────────────────────────────────
+    await pg.query(
+      `INSERT INTO proxy_usage_logs (proxy_id, target_domain, status, latency_ms)
+       VALUES ($1, $2, $3, $4)`,
+      [proxyId, target_domain || "unknown", status, latency_ms || null]
+    );
+
+    return res.json({ success: true });
+  } catch (err) {
+    logger.error("Report error:", err);
+    return res.status(500).json({ error: "Internal Server Error" });
+  }
+});
+
+export default router;
+</file>
+
+<file path="src/tools/importProxies.js">
+// src/tools/importProxies.js
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
+import { pg } from "../db/postgres.js";
+import { logger } from "../utils/logger.js";
+import { ingestProxies } from "./ingest.js";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const proxyDir = path.join(__dirname, "../../proxy_lists");
+
+
+async function importProxies() {
+  const files = fs.readdirSync(proxyDir).filter(f => f.endsWith(".txt"));
+  if (!files.length) {
+    logger.warn("No proxy lists found in proxy_lists/");
+    return;
+  }
+
+  for (const file of files) {
+    let provider = "unknown";
+    let proxy_type = null;
+    let country = null;
+    let protocol = null;
+
+    const name = file.replace(".txt", "");
+    const parts = name.split(/[-_]/);
+
+    provider = parts[0] || "unknown";
+
+    const possible_types = ["residential", "datacenter", "isp", "mobile"];
+    const possible_protocols = ["http", "https", "socks4", "socks5"];
+
+    for (const part of parts.slice(1)) {
+      const lowerPart = part.toLowerCase();
+      if (part.length === 2 && !country) {
+        country = part.toUpperCase();
+      } else if (possible_types.includes(lowerPart) && !proxy_type) {
+        proxy_type = lowerPart;
+      } else if (possible_protocols.includes(lowerPart) && !protocol) {
+        protocol = lowerPart;
+      }
+    }
+
+    await ingestProxies({
+      source: path.join(proxyDir, file),
+      provider,
+      type: proxy_type,
+      country: country || "global",
+      protocol
+    });
+  }
+
+  logger.info("All proxy imports complete!");
+  await pg.end();
+}
+
+importProxies().catch(err => logger.error("Import failed:", err));
+</file>
+
+<file path="docker-compose.yml">
+version: "3.8"
+
+services:
+  app:
+    image: node:20-alpine
+    working_dir: /app
+    volumes:
+      - .:/app
+    command: sh -c "npm install && npm run start"
+    ports:
+      - "3100:3000"   # REST API
+      - "8080:8080"   # Proxy relay (RELAY_HOST must be set in .env)
+    env_file: .env
+    depends_on:
+      - db
+      - redis
+    restart: unless-stopped
+
+  db:
+    image: postgres:16
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: myproxy
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./sql/init_v3_core.sql:/docker-entrypoint-initdb.d/1-schema.sql
+      - ./sql/seed_test.sql:/docker-entrypoint-initdb.d/2-seed.sql
+    restart: unless-stopped
+
+  redis:
+    image: redis:7
+    volumes:
+      - redisdata:/data
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  redisdata:
+</file>
+
+</files>
