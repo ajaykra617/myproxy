@@ -29,7 +29,8 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./sql/init_v3_core.sql:/docker-entrypoint-initdb.d/1-schema.sql
-      - ./sql/seed_test.sql:/docker-entrypoint-initdb.d/2-seed.sql
+      # Remove the line below in production — it seeds test data with real credentials
+      # - ./sql/seed_test.sql:/docker-entrypoint-initdb.d/2-seed.sql
     restart: unless-stopped
 
   redis:
