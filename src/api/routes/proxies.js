@@ -85,9 +85,15 @@ router.get("/proxy", async (req, res) => {
     const values = [];
     let idx = 1;
 
-    // Always filter by session_type so rotating and sticky rows never mix
-    query += ` AND session_type = $${idx++}`;
-    values.push(sticky ? "sticky" : "rotating");
+    // Filter by session_type. For rotating requests also accept NULL (rows imported
+    // without explicit session_type should behave as rotating, not be invisible).
+    if (sticky) {
+      query += ` AND session_type = $${idx++}`;
+      values.push("sticky");
+    } else {
+      query += ` AND (session_type = $${idx++} OR session_type IS NULL)`;
+      values.push("rotating");
+    }
 
     if (country) { query += ` AND country = $${idx++}`; values.push(country.toUpperCase()); }
     if (proxyType) { query += ` AND proxy_type = $${idx++}`; values.push(proxyType); }
