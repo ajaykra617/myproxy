@@ -7,8 +7,10 @@
 //   - HTTP CONNECT  (HTTPS, SOCKS-over-HTTP tunneling)
 //   - Plain HTTP    (standard HTTP proxy forwarding)
 
-import http from "http";
-import net  from "net";
+import http  from "http";
+import https from "https";
+import net   from "net";
+import tls   from "tls";
 import { redis }  from "../db/redis.js";
 import { logger } from "../utils/logger.js";
 import { config } from "../utils/config.js";
@@ -84,9 +86,12 @@ server.on("connect", async (req, clientSocket, head) => {
   }
 
   const up = parseUpstream(session.proxy_url);
-  const upSock = net.connect(up.port, up.host);
+  const usesTls = session.proxy_url.startsWith("https://");
+  const upSock = usesTls
+    ? tls.connect({ host: up.host, port: up.port, rejectUnauthorized: false })
+    : net.connect(up.port, up.host);
 
-  upSock.once("connect", () => {
+  upSock.once(usesTls ? "secureConnect" : "connect", () => {
     // Forward the CONNECT request to the real upstream proxy
     let msg = `CONNECT ${req.url} HTTP/1.1\r\nHost: ${req.url}\r\n`;
     if (up.authHeader) msg += `Proxy-Authorization: ${up.authHeader}\r\n`;
@@ -161,6 +166,7 @@ server.on("request", async (req, res) => {
   }
 
   const up = parseUpstream(session.proxy_url);
+  const usesTls = session.proxy_url.startsWith("https://");
   const targetUrl = new URL(req.url);
 
   // Build headers for the upstream request — swap our auth for theirs
@@ -168,8 +174,9 @@ server.on("request", async (req, res) => {
   delete headers["proxy-authorization"];
   if (up.authHeader) headers["proxy-authorization"] = up.authHeader;
 
-  const upReq = http.request(
-    { host: up.host, port: up.port, method: req.method, path: req.url, headers },
+  const upModule = usesTls ? https : http;
+  const upReq = upModule.request(
+    { host: up.host, port: up.port, method: req.method, path: req.url, headers, rejectUnauthorized: false },
     (upRes) => {
       res.writeHead(upRes.statusCode, upRes.headers);
       upRes.pipe(res);
