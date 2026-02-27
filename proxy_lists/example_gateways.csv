@@ -34,6 +34,8 @@ f02b9fb83fcfe2599938__cr.de:62b9ad13e79c2472@gw.dataimpulse.com:823,dataimpulse,
 f02b9fb83fcfe2599938__cr.gb:62b9ad13e79c2472@gw.dataimpulse.com:823,dataimpulse,datacenter,GB,https,rotating
 f02b9fb83fcfe2599938__cr.fr:62b9ad13e79c2472@gw.dataimpulse.com:823,dataimpulse,datacenter,FR,https,rotating
 f02b9fb83fcfe2599938__cr.ca:62b9ad13e79c2472@gw.dataimpulse.com:823,dataimpulse,datacenter,CA,https,rotating
+# ── DataImpulse residential (rotating) ───────────────────────────────────────
+c43a64b62d856fc19378:2faaa38ad456c130@gw.dataimpulse.com:823,dataimpulse,residential,US,http,rotating
 # ── Oxylabs example ──────────────────────────────────────────────────────────
 # customer-YOURUSER-cc-us:YOURPASS@pr.oxylabs.io:7777,oxylabs,residential,US,http,rotating
 # ── BrightData example ───────────────────────────────────────────────────────
