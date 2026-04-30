@@ -11,7 +11,7 @@ export const config = {
   redisUrl:       process.env.REDIS_URL     || "redis://redis:6379",
   postgresUrl:    process.env.POSTGRES_URL  || "postgres://postgres:postgres@db:5432/myproxy",
   groqApiKey:     process.env.GROQ_API_KEY,
-  webshareApiKey: process.env.WEBSHARE_API_KEY,
+
   managerApiKey: process.env.PROXY_MANAGER_API_KEY || process.env.MYPROXY_API_KEY || "",
   managerApiKeyHeader: process.env.PROXY_MANAGER_API_KEY_HEADER || "x-api-key",
 };

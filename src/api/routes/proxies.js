@@ -8,7 +8,7 @@ import { config } from "../../utils/config.js";
 
 const router = Router();
 
-const VALID_TYPES = ["residential", "datacenter", "mobile", "isp"];
+const VALID_TYPES = ["residential", "datacenter"];
 const VALID_PROTOCOLS = ["http", "https", "socks4", "socks5"];
 const VALID_ANONYMITY = ["elite", "anonymous", "transparent"];
 const VALID_STRATEGIES = ["random", "least_used"];
@@ -19,7 +19,7 @@ const VALID_STATUSES = ["success", "blocked", "timeout", "captcha", "slow", "err
 // Fetch a single healthy proxy matching the given criteria.
 //
 // Query params:
-//   proxy      – proxy type shorthand (residential|datacenter|mobile|isp)
+//   proxy      – proxy type shorthand (residential|datacenter)
 //   type       – same as proxy (either param works)
 //   country    – ISO country code (US, DE …)
 //   protocol   – http|https|socks4|socks5

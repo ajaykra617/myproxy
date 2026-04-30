@@ -28,7 +28,7 @@ async function importProxies() {
 
     provider = parts[0] || "unknown";
 
-    const possible_types = ["residential", "datacenter", "isp", "mobile"];
+    const possible_types = ["residential", "datacenter"];
     const possible_protocols = ["http", "https", "socks4", "socks5"];
 
     for (const part of parts.slice(1)) {

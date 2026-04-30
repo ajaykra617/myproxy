@@ -9,6 +9,13 @@ PASS=0
 FAIL=0
 TOTAL=0
 
+# Load environment variables if .env exists
+if [ -f .env ]; then
+  export $(grep -v '^#' .env | xargs)
+fi
+API_KEY="${PROXY_MANAGER_API_KEY:-}"
+HEADER_NAME="${PROXY_MANAGER_API_KEY_HEADER:-x-api-key}"
+
 # Colors
 GREEN='\033[0;32m'
 RED='\033[0;31m'
@@ -37,10 +44,11 @@ run_test() {
   if [ "$method" = "POST" ]; then
     response=$(curl -s -w "\n%{http_code}" -X POST \
       -H "Content-Type: application/json" \
+      -H "$HEADER_NAME: $API_KEY" \
       -d "$body" \
       "$url" 2>&1)
   else
-    response=$(curl -s -w "\n%{http_code}" "$url" 2>&1)
+    response=$(curl -s -w "\n%{http_code}" -H "$HEADER_NAME: $API_KEY" "$url" 2>&1)
   fi
 
   http_code=$(echo "$response" | tail -1)
@@ -182,9 +190,9 @@ run_test "TTL=abc returns 400" \
 run_test "Non-existent country returns 404" \
   GET "$BASE/v1/proxy?country=ZZ" 404 "" '"error"'
 
-# 4i. No matching proxy (wrong type for sticky)
-run_test "Mobile sticky proxy returns 404 (no such data)" \
-  GET "$BASE/v1/proxy?sticky=true&type=mobile" 404 "" '"error"'
+# 4i. Invalid proxy type (mobile)
+run_test "Mobile proxy returns 400 (invalid type)" \
+  GET "$BASE/v1/proxy?sticky=true&type=mobile" 400 "" '"error"'
 
 # ============================================================================
 # 5. POST /v1/proxy/report — Report Feedback
@@ -195,7 +203,7 @@ echo "│  📝 Section 5: Report Proxy Usage (POST /v1/proxy/report)    │"
 echo "└──────────────────────────────────────────────────────────────┘"
 
 # First grab a real proxy_id from the DB
-PROXY_ID=$(curl -s "$BASE/v1/proxy" | grep -o '"id":[0-9]*' | head -1 | cut -d: -f2)
+PROXY_ID=$(curl -s -H "$HEADER_NAME: $API_KEY" "$BASE/v1/proxy" | grep -o '"id":[0-9]*' | head -1 | cut -d: -f2)
 echo "  ℹ️  Resolved proxy_id for reports: $PROXY_ID"
 
 # 5a. Report success
@@ -285,7 +293,7 @@ TOTAL=$((TOTAL + 1))
 printf "\n${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}\n"
 printf "${BOLD}TEST #%d: Verify proxy score was updated after reports${NC}\n" "$TOTAL"
 
-score_resp=$(curl -s "$BASE/v1/proxy")
+score_resp=$(curl -s -H "$HEADER_NAME: $API_KEY" "$BASE/v1/proxy")
 score=$(echo "$score_resp" | grep -o '"score":[0-9.]*' | head -1 | cut -d: -f2)
 
 if [ -n "$score" ]; then
