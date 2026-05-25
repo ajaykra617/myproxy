@@ -5,6 +5,11 @@ import { pg } from "../../db/postgres.js";
 import { redis } from "../../db/redis.js";
 import { logger } from "../../utils/logger.js";
 import { config } from "../../utils/config.js";
+import {
+  buildBrightDataProxy,
+  getBrightDataConfig,
+  isBrightDataProviderName,
+} from "../../providers/brightData.js";
 
 const router = Router();
 
@@ -13,6 +18,66 @@ const VALID_PROTOCOLS = ["http", "https", "socks4", "socks5"];
 const VALID_ANONYMITY = ["elite", "anonymous", "transparent"];
 const VALID_STRATEGIES = ["random", "least_used"];
 const VALID_STATUSES = ["success", "blocked", "timeout", "captcha", "slow", "error"];
+
+async function sendProxyLease(res, p, { sticky = false, sessttlMinutes = null } = {}) {
+  const metadata = {
+    id: p.id ?? null,
+    country: p.country,
+    type: p.proxy_type,
+    provider: p.provider,
+    session_type: p.session_type,
+    score: p.score === undefined || p.score === null ? null : parseFloat(p.score),
+    ...(sticky && { sessttl_minutes: sessttlMinutes }),
+  };
+
+  if (p.provider === "brightdata") {
+    metadata.gateway = true;
+    metadata.ssl = p.metadata?.ssl || "Use Bright Data CA or configure clients to ignore TLS verification errors.";
+  }
+
+  if (config.relayHost) {
+    const sessionTtl = sticky
+      ? sessttlMinutes * 60 + 60
+      : 86400; // rotating: 24 h
+
+    const token = crypto.randomBytes(24).toString("hex");
+    await redis.setex(
+      `relay:${token}`,
+      sessionTtl,
+      JSON.stringify({
+        proxy_url: p.proxy_string,
+        proxy_id: p.id ?? null,
+        sticky,
+        provider: p.provider,
+      })
+    );
+
+    return res.json({
+      proxy_url: `http://${token}:x@${config.relayHost}:${config.relayPort}`,
+      expires_at: new Date(Date.now() + sessionTtl * 1000).toISOString(),
+      connection: {
+        scheme: "http",
+        host: config.relayHost,
+        port: String(config.relayPort),
+        username: token,
+        password: "x",
+      },
+      metadata,
+    });
+  }
+
+  return res.json({
+    proxy_url: p.proxy_string,
+    connection: {
+      scheme: p.protocol,
+      host: p.ip,
+      port: String(p.port),
+      username: p.username || null,
+      password: p.password || null,
+    },
+    metadata,
+  });
+}
 
 // ----------------------------------------------------------------------
 // GET /v1/proxy
@@ -25,6 +90,8 @@ const VALID_STATUSES = ["success", "blocked", "timeout", "captcha", "slow", "err
 //   protocol   – http|https|socks4|socks5
 //   anonymity  – elite|anonymous|transparent
 //   provider   – specific provider name
+//                brightdata is an env-backed provider and supports country,
+//                state, asn, and ip username options
 //   strategy   – random (default) | least_used
 //   sticky     – true: return a sticky-session proxy row (must exist in DB)
 //   ttl        – sticky session duration in minutes (1–1440); overrides
@@ -80,6 +147,36 @@ router.get("/proxy", async (req, res) => {
   }
 
   try {
+    const brightDataArgs = {
+      type: proxyType,
+      protocol,
+      country,
+      state: req.query.state,
+      asn: req.query.asn,
+      ip: req.query.ip || req.query.proxy_ip,
+    };
+
+    if (isBrightDataProviderName(provider)) {
+      if (sticky) {
+        return res.status(400).json({
+          error: "Bright Data shared residential proxies rotate per request; sticky=true is not supported by this provider.",
+        });
+      }
+
+      const brightDataProxy = buildBrightDataProxy(brightDataArgs);
+      if (!brightDataProxy) {
+        const brightData = getBrightDataConfig();
+        return res.status(brightData.enabled && !brightData.configured ? 503 : 404).json({
+          error: brightData.configured
+            ? "No matching Bright Data proxy found"
+            : "Bright Data proxy is not configured. Set BRIGHTDATA_PASSWORD in the proxy manager environment.",
+          criteria: { country, type: proxyType || "residential", protocol, provider },
+        });
+      }
+
+      return await sendProxyLease(res, brightDataProxy);
+    }
+
     // ── Build query ───────────────────────────────────────────────────
     let query = `SELECT * FROM proxies WHERE healthy = true`;
     const values = [];
@@ -113,6 +210,14 @@ router.get("/proxy", async (req, res) => {
     const { rows } = await pg.query(query, values);
 
     if (!rows.length) {
+      const brightDataFallback = !provider && !sticky
+        ? buildBrightDataProxy(brightDataArgs)
+        : null;
+
+      if (brightDataFallback) {
+        return await sendProxyLease(res, brightDataFallback);
+      }
+
       return res.status(404).json({
         error: "No matching proxy found",
         criteria: { country, type: proxyType, protocol, anonymity, provider },
@@ -151,56 +256,11 @@ router.get("/proxy", async (req, res) => {
       );
     }
 
-    // ── Common metadata ───────────────────────────────────────────────
-    const metadata = {
-      id: p.id,
-      country: p.country,
-      type: p.proxy_type,
-      provider: p.provider,
-      session_type: p.session_type,
-      score: parseFloat(p.score),
-      ...(sticky && { sessttl_minutes: sessttlMinutes }),
-    };
-
-    // ── Relay mode ────────────────────────────────────────────────────
-    if (config.relayHost) {
-      const sessionTtl = sticky
-        ? sessttlMinutes * 60 + 60
-        : 86400; // rotating: 24 h
-
-      const token = crypto.randomBytes(24).toString("hex");
-      await redis.setex(
-        `relay:${token}`,
-        sessionTtl,
-        JSON.stringify({ proxy_url: proxyUrl, proxy_id: p.id, sticky })
-      );
-
-      return res.json({
-        proxy_url: `http://${token}:x@${config.relayHost}:${config.relayPort}`,
-        expires_at: new Date(Date.now() + sessionTtl * 1000).toISOString(),
-        connection: {
-          scheme: "http",
-          host: config.relayHost,
-          port: String(config.relayPort),
-          username: token,
-          password: "x",
-        },
-        metadata,
-      });
-    }
-
-    // ── Direct mode (no relay) ────────────────────────────────────────
-    return res.json({
-      proxy_url: proxyUrl,
-      connection: {
-        scheme: p.protocol,
-        host: p.ip,
-        port: String(p.port),
-        username: effectiveUsername || null,
-        password: p.password || null,
-      },
-      metadata,
-    });
+    return await sendProxyLease(
+      res,
+      { ...p, username: effectiveUsername, proxy_string: proxyUrl },
+      { sticky, sessttlMinutes }
+    );
   } catch (err) {
     logger.error("Proxy fetch error:", err);
     return res.status(500).json({ error: "Internal Server Error" });
@@ -242,6 +302,28 @@ router.get("/providers", async (_req, res) => {
         avg_score: parseFloat(row.avg_score),
         countries: row.countries || [],
       });
+    }
+
+    const brightData = getBrightDataConfig();
+    if (brightData.enabled && brightData.configured) {
+      if (!map.brightdata) {
+        map.brightdata = { provider: "brightdata", types: [] };
+      }
+
+      const hasBrightDataResidential = map.brightdata.types.some(
+        (entry) => entry.proxy_type === "residential" && entry.protocol === brightData.protocol
+      );
+
+      if (!hasBrightDataResidential) {
+        map.brightdata.types.push({
+          proxy_type: "residential",
+          protocol: brightData.protocol,
+          total: 1,
+          healthy: 1,
+          avg_score: 100,
+          countries: brightData.defaultCountry ? [brightData.defaultCountry] : ["GLOBAL"],
+        });
+      }
     }
 
     return res.json({ providers: Object.values(map) });
